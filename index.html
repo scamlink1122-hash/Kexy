@@ -1,60 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-<title>Kexy (Firebase + WebRTC)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kexy</title>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <style>
-:root{--accent:#0095f6;--bg-gradient:linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);}
-html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg-gradient);-webkit-font-smoothing:antialiased;}
-#passwordScreen{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:white;}
-#passwordScreen h2{margin:0 0 14px;font-size:22px;}
-#passwordScreen input{width:140px;padding:12px;font-size:20px;text-align:center;border-radius:10px;border:none;outline:none;}
-#passwordScreen button{margin-top:12px;padding:10px 18px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600}
-.app{position:relative;width:100%;height:100vh;display:flex;flex-direction:column;gap:6px;box-sizing:border-box;padding:8px;}
-.room-bar{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.9);padding:8px;border-radius:10px;}
-.room-bar input{flex:1;padding:8px;border-radius:8px;border:1px solid #ddd}
-.room-bar button{padding:8px 10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-weight:600}
-.video-wrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;border-radius:12px;overflow:hidden;background:#000}
-video{display:block;object-fit:cover;width:100%;height:100%}
-#localVideo{position:absolute;right:12px;bottom:110px;width:110px;height:150px;border-radius:10px;border:2px solid rgba(255,255,255,0.9);background:#000;z-index:30;object-fit:cover;cursor:pointer;transition:all .25s ease;}
-#localVideo.minimized{width:80px;height:110px;opacity:0.9}
-#remoteVideo.small{width:140px;height:190px;right:12px;bottom:110px;position:absolute;border-radius:10px;border:2px solid rgba(255,255,255,0.9);z-index:20;object-fit:cover}
-.controls{display:flex;gap:12px;justify-content:center;align-items:center;padding:8px;}
-.controls button{flex:0 0 78px;height:48px;border-radius:999px;border:none;background:rgba(0,0,0,0.6);color:white;font-size:18px;display:flex;align-items:center;justify-content:center;gap:8px;}
-.controls button.end{background:#ff3b30}
-.chat{background:rgba(255,255,255,0.95);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:hidden;}
-.messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:6px}
-.msg{max-width:74%;padding:8px;border-radius:12px;background:#f1f1f1;color:#111}
-.msg.sent{align-self:flex-end;background:#dcf8c6}
-.msg.received{align-self:flex-start;background:#fff;border:1px solid #e2e2e2}
-.chat-input{display:flex;gap:8px;align-items:center}
-.chat-input input[type="text"]{flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;outline:none}
-.chat-input input[type="file"]{display:none}
-.file-label{padding:10px 12px;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
-@media(min-width:900px){.app{max-width:900px;margin:10px auto;height:92vh} #localVideo{right:18px;bottom:120px}}
+body{margin:0;font-family:Arial,sans-serif;background:#111;color:#fff;}
+#adminBox, #loginBox, #mainApp{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;}
+button{padding:10px 16px;margin:8px;border:none;border-radius:8px;background:#0095f6;color:#fff;font-weight:600;cursor:pointer;}
+input{padding:10px 12px;border-radius:8px;border:none;margin:6px;font-size:16px;}
+#mainApp{display:none;width:100%;height:100vh;flex-direction:column;}
+.video-wrap{position:relative;flex:1;display:flex;justify-content:center;align-items:center;background:#000;}
+video{width:100%;height:100%;object-fit:cover;}
+#localVideo{position:absolute;width:120px;height:160px;bottom:12px;right:12px;border:2px solid #fff;border-radius:8px;cursor:pointer;}
+.controls{display:flex;gap:12px;justify-content:center;margin:8px;}
+.controls button{flex:0 0 60px;height:40px;border-radius:50%;background:rgba(0,0,0,0.5);}
+.chat{background:rgba(255,255,255,0.9);color:#000;max-height:200px;overflow-y:auto;padding:6px;}
+.msg{padding:6px;margin:4px;border-radius:8px;}
+.msg.sent{background:#dcf8c6;align-self:flex-end;}
+.msg.received{background:#fff;align-self:flex-start;}
 </style>
 </head>
 <body>
 
-<div id="passwordScreen">
-<h2>Enter 4-Digit Password</h2>
-<input id="passInput" maxlength="4" placeholder="****" inputmode="numeric" />
-<button id="passBtn">Unlock</button>
-<p id="passError" style="color:#ff8888;margin-top:10px"></p>
+<!-- ADMIN -->
+<div id="adminBox">
+<h2>Admin Panel</h2>
+<button onclick="generatePassword()">Generate 4-Digit Password</button>
+<p id="genPass" style="color:#0f0;"></p>
 </div>
 
-<div class="app" id="app" style="display:none">
-<div class="room-bar">
-<input id="roomLink" readonly placeholder="Room link will generate when unlocked">
-<button id="copyBtn">Copy</button>
+<!-- USER LOGIN -->
+<div id="loginBox">
+<h2>Enter Password to Join</h2>
+<input id="userPass" type="text" placeholder="****" maxlength="4">
+<button onclick="checkPassword()">Submit</button>
+<p id="passError" style="color:#f88;"></p>
 </div>
-<div class="video-wrap" id="videoWrap">
+
+<!-- MAIN APP -->
+<div id="mainApp">
+<div class="video-wrap">
 <video id="remoteVideo" autoplay playsinline></video>
 <video id="localVideo" autoplay muted playsinline></video>
 </div>
@@ -62,19 +53,15 @@ video{display:block;object-fit:cover;width:100%;height:100%}
 <button id="switchBtn">🔄</button>
 <button id="muteBtn">🎤</button>
 <button id="speakerBtn">🔊</button>
-<button id="endBtn" class="end">❌</button>
+<button id="endBtn">❌</button>
 </div>
-<div class="chat">
-<div class="messages" id="messages"></div>
-<div class="chat-input">
-<input type="text" id="textInput" placeholder="Type a message..." />
-<label class="file-label" title="Send image/video">📎<input type="file" id="fileInput" accept="image/*,video/*"></label>
-<button id="sendBtn" style="padding:10px 12px;background:var(--accent);color:#fff;border:none;border-radius:8px">Send</button>
-</div>
-</div>
+<div class="chat" id="messages"></div>
+<input type="text" id="textInput" placeholder="Type message...">
+<button id="sendBtn">Send</button>
 </div>
 
 <script>
+/* ---------------- Firebase ---------------- */
 const firebaseConfig = {
 apiKey:"AIzaSyCdaMeWKKI7P8_sNeVbjs4eRlnufQItlJI",
 authDomain:"video-call-a9749.firebaseapp.com",
@@ -87,117 +74,87 @@ measurementId:"G-4KR499NMHS"
 };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
+const passRef = db.ref("system/password");
 
-/* Elements */
-const passScreen=document.getElementById('passwordScreen');
-const passInput=document.getElementById('passInput');
-const passBtn=document.getElementById('passBtn');
-const passError=document.getElementById('passError');
-const appDiv=document.getElementById('app');
-const roomLinkInput=document.getElementById('roomLink');
-const copyBtn=document.getElementById('copyBtn');
-const remoteVideo=document.getElementById('remoteVideo');
-const localVideo=document.getElementById('localVideo');
-const switchBtn=document.getElementById('switchBtn');
-const muteBtn=document.getElementById('muteBtn');
-const speakerBtn=document.getElementById('speakerBtn');
-const endBtn=document.getElementById('endBtn');
-const messagesDiv=document.getElementById('messages');
-const textInput=document.getElementById('textInput');
-const fileInput=document.getElementById('fileInput');
-const sendBtn=document.getElementById('sendBtn');
-
-/* State */
-let localStream, pc, roomId, dataChannel, muted=false, speakerOn=true, facingMode='user';
-const HOST_PASSWORD="1008";
-
-/* Password */
-passBtn.addEventListener('click',tryUnlock);
-passInput.addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
-function tryUnlock(){
-const v=passInput.value.trim();
-if(v===HOST_PASSWORD){
-passScreen.style.display='none';
-appDiv.style.display='flex';
-initApp();
-}else{passError.textContent='Wrong password'; setTimeout(()=>passError.textContent='',2000);}
+/* ---------------- Admin Generate ---------------- */
+function generatePassword(){
+let pass = Math.floor(1000+Math.random()*9000).toString();
+passRef.set(pass).then(()=>{document.getElementById("genPass").innerText="Password Generated: "+pass;});
 }
 
-/* Messages */
-function addMessage(text,type='received',fileType){
-const el=document.createElement('div'); el.className='msg '+(type==='sent'?'sent':'received');
-if(fileType){ if(fileType.startsWith('image')){ const img=document.createElement('img'); img.src=text; img.style.maxWidth='220px'; img.style.borderRadius='8px'; el.appendChild(img);}
-else if(fileType.startsWith('video')){ const v=document.createElement('video'); v.src=text; v.controls=true; v.style.maxWidth='220px'; v.style.borderRadius='8px'; el.appendChild(v);}
-else el.textContent='[file]';}
-else el.textContent=text;
-messagesDiv.appendChild(el); messagesDiv.scrollTop=messagesDiv.scrollHeight;
+/* ---------------- User Check ---------------- */
+function checkPassword(){
+let entered = document.getElementById("userPass").value;
+passRef.once("value").then(snap=>{
+if(snap.val() === entered){
+document.getElementById("loginBox").style.display="none";
+document.getElementById("mainApp").style.display="flex";
+initCall();
+}else{document.getElementById("passError").innerText="Wrong Password!"; setTimeout(()=>{document.getElementById("passError").innerText="";},2000); }
+});
 }
 
-/* Local Media */
-async function startLocalStream(){
-try{ const constraints={audio:true,video:{width:{ideal:1280},height:{ideal:720},facingMode}};
-localStream=await navigator.mediaDevices.getUserMedia(constraints); localVideo.srcObject=localStream;
-}catch(err){alert('Camera/Microphone access required: '+err.message);}
-}
+/* ---------------- WebRTC Call ---------------- */
+let localStream, pc, muted=false, speakerOn=true, facingMode='user';
 
-/* WebRTC + Firebase */
-async function initApp(){
-await startLocalStream();
-roomId=new URLSearchParams(location.search).get('room'); 
-if(!roomId){ roomId=Math.random().toString(36).substring(2,10); roomLinkInput.value=`${location.origin}${location.pathname}?room=${roomId}`;}
-else{roomLinkInput.value=`${location.origin}${location.pathname}?room=${roomId}`;}
+async function initCall(){
+localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:true});
+document.getElementById("localVideo").srcObject=localStream;
 
 const servers={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
-pc=new RTCPeerConnection(servers);
+pc = new RTCPeerConnection(servers);
+localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
 
-localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
+const remoteVideo=document.getElementById("remoteVideo");
 pc.ontrack=e=>remoteVideo.srcObject=e.streams[0];
 
-dataChannel=pc.createDataChannel('chat'); dataChannel.onmessage=e=>addMessage(e.data,'received');
-pc.ondatachannel=e=>{ e.channel.onmessage=ev=>addMessage(ev.data,'received'); }
+/* Chat DataChannel */
+let dataChannel = pc.createDataChannel("chat");
+dataChannel.onmessage=e=>addMessage(e.data,"received");
+pc.ondatachannel=e=>{e.channel.onmessage=ev=>addMessage(ev.data,"received");}
 
-const roomRef=db.ref('rooms/'+roomId+'/signals');
-
-if(!new URLSearchParams(location.search).get('join')){
-const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
-roomRef.push({type:'offer',sdp:offer.sdp});}
-
-roomRef.on('child_added', async snapshot=>{
-const data=snapshot.val(); if(!data) return;
-if(data.type==='offer' && !pc.currentRemoteDescription){ await pc.setRemoteDescription({type:'offer',sdp:data.sdp}); const answer=await pc.createAnswer(); await pc.setLocalDescription(answer); roomRef.push({type:'answer',sdp:answer.sdp});}
-else if(data.type==='answer' && !pc.currentRemoteDescription){ await pc.setRemoteDescription({type:'answer',sdp:data.sdp});}
-else if(data.type==='ice' && data.candidate){ try{ await pc.addIceCandidate(data.candidate); }catch(e){}}
-});
+/* Firebase signaling */
+let roomId="room1"; // fixed room, or generate random
+let roomRef=db.ref("rooms/"+roomId+"/signals");
 
 pc.onicecandidate=e=>{ if(e.candidate) roomRef.push({type:'ice',candidate:e.candidate.toJSON()});}
+
+roomRef.on('child_added',async snap=>{
+const data=snap.val();
+if(!data) return;
+if(data.type==='offer' && !pc.currentRemoteDescription){ await pc.setRemoteDescription({type:'offer',sdp:data.sdp}); const answer=await pc.createAnswer(); await pc.setLocalDescription(answer); roomRef.push({type:'answer',sdp:answer.sdp});}
+else if(data.type==='answer' && !pc.currentRemoteDescription){ await pc.setRemoteDescription({type:'answer',sdp:data.sdp});}
+else if(data.type==='ice' && data.candidate){ try{ await pc.addIceCandidate(data.candidate);}catch(e){} }
+});
+
+/* Offer */
+const offer = await pc.createOffer();
+await pc.setLocalDescription(offer);
+roomRef.push({type:'offer',sdp:offer.sdp});
 }
 
-/* Send messages */
-sendBtn.addEventListener('click',sendMessage);
-textInput.addEventListener('keydown',e=>{if(e.key==='Enter')sendMessage();});
-function sendMessage(){
-const txt=textInput.value.trim(); const file=fileInput.files[0];
-if(txt){ addMessage(txt,'sent'); if(dataChannel) dataChannel.send(txt); textInput.value='';}
-if(file){ const MAX=8*1024*1024; if(file.size>MAX){alert('File too large'); return;}
-const reader=new FileReader(); reader.onload=()=>{ const dataUrl=reader.result; addMessage(dataUrl,'sent',file.type); if(dataChannel)dataChannel.send(dataUrl);}
-reader.readAsDataURL(file); fileInput.value='';}
-}
+/* ---------------- Chat ---------------- */
+function addMessage(text,type='received'){const el=document.createElement('div'); el.className='msg '+(type==='sent'?'sent':'received'); el.innerText=text; document.getElementById('messages').appendChild(el);}
 
-/* Controls */
-switchBtn.addEventListener('click',async()=>{
+document.getElementById("sendBtn").addEventListener('click',()=>{
+let txt=document.getElementById("textInput").value.trim();
+if(txt){ addMessage(txt,"sent"); document.getElementById("textInput").value=""; /* send via dataChannel */ }
+});
+
+/* ---------------- Controls ---------------- */
+document.getElementById("switchBtn").addEventListener('click',async()=>{
 facingMode=(facingMode==='user')?'environment':'user';
 if(localStream) localStream.getTracks().forEach(t=>t.stop());
-await startLocalStream();
+localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode},audio:true});
+document.getElementById("localVideo").srcObject=localStream;
 const sender=pc.getSenders().find(s=>s.track && s.track.kind==='video');
 if(sender) sender.replaceTrack(localStream.getVideoTracks()[0]);
 });
 
-muteBtn.addEventListener('click',()=>{muted=!muted; if(localStream)localStream.getAudioTracks().forEach(t=>t.enabled=!muted); muteBtn.textContent=muted?'🔇':'🎤';});
-speakerBtn.addEventListener('click',()=>{speakerOn=!speakerOn; remoteVideo.muted=!speakerOn; speakerBtn.textContent=speakerOn?'🔊':'🔈';});
-endBtn.addEventListener('click',()=>location.reload());
-localVideo.addEventListener('click',()=>{localVideo.classList.toggle('minimized'); remoteVideo.classList.toggle('small');});
-remoteVideo.addEventListener('click',()=>{remoteVideo.classList.toggle('small'); localVideo.classList.toggle('minimized');});
-copyBtn.addEventListener('click',()=>{navigator.clipboard.writeText(roomLinkInput.value).then(()=>{copyBtn.textContent='Copied'; setTimeout(()=>copyBtn.textContent='Copy',1200);});});
+document.getElementById("muteBtn").addEventListener('click',()=>{muted=!muted; localStream.getAudioTracks().forEach(t=>t.enabled=!muted); document.getElementById("muteBtn").textContent=muted?'🔇':'🎤';});
+document.getElementById("speakerBtn").addEventListener('click',()=>{speakerOn=!speakerOn; document.getElementById("remoteVideo").muted=!speakerOn; document.getElementById("speakerBtn").textContent=speakerOn?'🔊':'🔈';});
+document.getElementById("endBtn").addEventListener('click',()=>location.reload());
 </script>
+
 </body>
-  </html>
+</html>
