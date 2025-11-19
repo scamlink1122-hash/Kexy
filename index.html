@@ -3,42 +3,43 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>kexy — video + chat + screenshare</title>
+<title>Kexy — video + chat + files + screenshare</title>
 
-<!-- Firebase (app, db, storage) -->
+<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 <style>
-  :root{ --accent:#0095f6; --bg:linear-gradient(135deg,#f09433,#cc2366); }
+  :root{ --accent:#0095f6; --bg: linear-gradient(135deg,#f09433,#cc2366); }
   html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);}
-  /* number screen */
-  #numberScreen{position:fixed;inset:0;background:rgba(0,0,0,0.86);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;z-index:9999}
+  /* Number screen */
+  #numberScreen{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;z-index:9999}
   #numberScreen h2{margin:0 0 10px;font-size:20px}
   #numberScreen input{width:200px;padding:12px;border-radius:10px;border:none;font-size:18px;text-align:center}
   #numberScreen button{margin-top:10px;padding:10px 16px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:700}
+  #showCode{color:#9fff9f;margin-top:12px;font-size:20px;font-weight:700}
 
-  /* main app */
-  .app{display:none;position:relative;height:100vh;box-sizing:border-box;padding:8px;gap:8px;display:flex;flex-direction:column}
+  /* main */
+  .app{display:none;position:relative;height:100vh;box-sizing:border-box;padding:8px;display:flex;flex-direction:column;gap:8px}
   .video-wrap{flex:1;border-radius:12px;overflow:hidden;background:#000;position:relative;display:flex;align-items:center;justify-content:center}
   video{width:100%;height:100%;object-fit:cover;display:block}
-  #localVideo{position:absolute;right:12px;bottom:100px;width:120px;height:160px;border-radius:12px;border:2px solid rgba(255,255,255,0.9);background:#000;z-index:40;cursor:pointer}
+  #localVideo{position:absolute;right:14px;bottom:110px;width:120px;height:160px;border-radius:12px;border:2px solid rgba(255,255,255,0.9);background:#000;z-index:50;cursor:pointer}
 
-  .controls{display:flex;gap:10px;justify-content:center;padding:10px}
-  .controls button{padding:10px 14px;border-radius:999px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:16px}
+  .controls{display:flex;gap:10px;justify-content:center;padding:8px}
+  .controls button{padding:10px 12px;border-radius:999px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:16px}
   .controls button.end{background:#ff3b30}
 
-  /* chat panel overlay (bottom) */
-  #chatBox{position:fixed;left:12px;right:12px;bottom:88px;height:180px;background:rgba(255,255,255,0.92);border-radius:12px;padding:8px;overflow:auto;display:flex;flex-direction:column;gap:8px;z-index:30}
+  /* chat */
+  #chatBox{position:fixed;left:12px;right:12px;bottom:150px;height:210px;background:rgba(255,255,255,0.95);border-radius:12px;padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px;z-index:60}
   .msg{max-width:78%;padding:8px;border-radius:10px;background:#f1f1f1;color:#111}
   .msg.me{align-self:flex-end;background:#dcf8c6}
-  #chatControls{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:8px;z-index:31}
+  .msg .meta{font-size:12px;color:#666;margin-bottom:6px}
+  #chatControls{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:8px;z-index:61}
   #chatControls input[type=text]{flex:1;padding:10px;border-radius:10px;border:1px solid #ddd}
   #chatControls button{padding:10px 12px;border-radius:10px;border:none;background:var(--accent);color:#fff}
 
-  /* file previews */
-  .file-thumb{max-width:180px;border-radius:8px;display:block}
+  .file-thumb{max-width:200px;border-radius:8px;display:block}
 
   @media(min-width:900px){
     .app{max-width:900px;margin:12px auto;height:94vh}
@@ -48,15 +49,17 @@
 </head>
 <body>
 
-<!-- NUMBER SCREEN -->
+<!-- Number / Access code screen -->
 <div id="numberScreen">
-  <h2>Enter Mobile Number to Join</h2>
-  <input id="numberInput" maxlength="10" inputmode="numeric" placeholder="10-digit number" />
+  <h2>Enter 4-digit Access Code</h2>
+  <input id="numberInput" maxlength="4" inputmode="numeric" placeholder="XXXX" />
   <button id="numberBtn">Continue</button>
-  <p id="numError" style="color:#ff9b9b;margin-top:8px"></p>
+  <div id="showCode">Your Code: —</div>
+  <p id="numError" style="color:#ff9999;margin-top:8px"></p>
+  <p style="color:#ddd;margin-top:10px;font-size:13px">Share this code with only the person you want to allow.</p>
 </div>
 
-<!-- APP -->
+<!-- App -->
 <div class="app" id="app">
   <div class="video-wrap" id="videoWrap">
     <video id="remoteVideo" autoplay playsinline></video>
@@ -72,7 +75,7 @@
   </div>
 </div>
 
-<!-- CHAT (hidden until call starts) -->
+<!-- Chat UI -->
 <div id="chatBox" style="display:none"></div>
 <div id="chatControls" style="display:none">
   <input type="text" id="chatInput" placeholder="Type a message..." />
@@ -82,7 +85,7 @@
 </div>
 
 <script>
-/* ================= Firebase Config ================= */
+/* ================= Firebase Config - replace with your own for production ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyCdaMeWKKI7P8_sNeVbjs4eRlnufQItlJI",
   authDomain: "video-call-a9749.firebaseapp.com",
@@ -97,12 +100,12 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const storage = firebase.storage();
 
-/* ================= Constants & UI ================= */
-const ALLOWED_NUMBER = "9575669078";
-const ROOM_ID = "kexyroom"; // fixed room
+/* ================= Constants & UI refs ================= */
+const ROOM_ID = "kexyroom"; // fixed room for both
 const numberScreen = document.getElementById('numberScreen');
 const numberInput = document.getElementById('numberInput');
 const numberBtn = document.getElementById('numberBtn');
+const showCodeEl = document.getElementById('showCode');
 const numError = document.getElementById('numError');
 
 const appDiv = document.getElementById('app');
@@ -123,196 +126,228 @@ const fileBtn = document.getElementById('fileBtn');
 const fileInput = document.getElementById('fileInput');
 
 /* ================= State ================= */
-let myNumber = null;
+let GENERATED_CODE = null;
+let myCode = null; // user-entered
 let pc = null;
 let localStream = null;
 let isMuted = false;
 let speakerOn = true;
 let isSharing = false;
 let screenTrack = null;
+let role = null; // "caller" or "callee"
 
-/* ================= Number check ================= */
-numberBtn.onclick = () => attemptJoin();
-numberInput.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptJoin(); });
+/* =============== Generate 4-digit code on each load =============== */
+function generate4Digit(){
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+GENERATED_CODE = generate4Digit();
+showCodeEl.innerText = "Your Code: " + GENERATED_CODE;
+console.log("Access Code:", GENERATED_CODE);
 
-function attemptJoin(){
-  const n = numberInput.value.trim();
-  if(n === ALLOWED_NUMBER){
-    myNumber = n;
+/* =============== Number check UI =============== */
+numberBtn.onclick = () => tryEnter();
+numberInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryEnter(); });
+
+function tryEnter(){
+  const val = numberInput.value.trim();
+  if(val === GENERATED_CODE){
+    myCode = val;
     numberScreen.style.display = 'none';
     appDiv.style.display = 'flex';
     startApp();
   } else {
-    numError.textContent = 'Invalid Number — contact admin.';
-    setTimeout(()=> numError.textContent = '',2000);
+    numError.innerText = 'Wrong code!';
+    setTimeout(()=> numError.innerText = '',2000);
   }
 }
 
 /* ================= Top-level start ================= */
 async function startApp(){
   await startLocalCamera({video:{facingMode:'user'}, audio:true});
-  setupUI();
-  // show chat UI
-  chatBox.style.display = 'block';
-  chatControls.style.display = 'flex';
-  await setupSignalingAndCall(ROOM_ID);
+  showChatUI(true);
+  await setupCallAndSignaling(ROOM_ID);
   setupChatRealtime(ROOM_ID);
 }
 
-/* ============== Local camera ============== */
+/* ================= Local camera ================= */
 async function startLocalCamera(constraints){
   try{
     localStream = await navigator.mediaDevices.getUserMedia(constraints);
     localVideo.srcObject = localStream;
   } catch(err){
-    alert('Grant camera/mic access: '+err.message);
+    alert('Camera/Microphone access required: ' + err.message);
     console.error(err);
   }
 }
 
-/* ============== WebRTC Signaling (Firebase RTDB) ============== */
-async function setupSignalingAndCall(roomId){
-  // check if offer exists -> join, else create
+/* ================= STUN servers ================= */
+const servers = {
+  iceServers: [
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" }
+    // For production add TURN server here
+  ]
+};
+
+/* ================= Signaling & Call ================= */
+async function setupCallAndSignaling(roomId){
+  // Determine if offer exists
   const offerSnap = await db.ref('rooms/'+roomId+'/offer').get();
-  if(offerSnap.exists() && offerSnap.val()){
+  const offerVal = offerSnap.val();
+
+  if(offerVal){
+    role = 'callee';
     await joinCall(roomId);
   } else {
+    role = 'caller';
     await createCall(roomId);
   }
 }
 
-function createPeerConnection(roomId){
-  pc = new RTCPeerConnection();
+function createPC(roomId){
+  pc = new RTCPeerConnection(servers);
 
   // add local tracks
   if(localStream){
     localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
   }
 
-  // remote track
+  // when remote track arrives
   pc.ontrack = (e) => {
     if(e.streams && e.streams[0]){
       remoteVideo.srcObject = e.streams[0];
     } else {
-      // fallback: create stream from tracks
+      // fallback: create stream
       const inbound = new MediaStream();
-      e.track && inbound.addTrack(e.track);
+      inbound.addTrack(e.track);
       remoteVideo.srcObject = inbound;
     }
   };
 
-  // ice -> push to DB
+  // ICE candidate -> push to DB (role-specific)
   pc.onicecandidate = e => {
-    if(e.candidate){
-      db.ref('rooms/'+roomId+'/candidates').push(JSON.stringify(e.candidate));
+    if(!e.candidate) return;
+    const json = JSON.stringify(e.candidate);
+    if(role === 'caller'){
+      db.ref('rooms/'+roomId+'/callerCandidates').push(json);
+    } else if(role === 'callee'){
+      db.ref('rooms/'+roomId+'/calleeCandidates').push(json);
     }
   };
 
-  // cleanup on connection state
   pc.onconnectionstatechange = () => {
-    if(pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed'){
-      // keep simple: do nothing (user can press End)
-    }
+    console.log('PC state:', pc.connectionState);
   };
+
+  return pc;
 }
 
 async function createCall(roomId){
-  createPeerConnection(roomId);
+  createPC(roomId);
 
+  // create offer
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
-  // save offer
-  db.ref('rooms/'+roomId+'/offer').set(JSON.stringify(offer));
+  // store offer
+  await db.ref('rooms/'+roomId+'/offer').set(JSON.stringify(offer));
 
-  // listen for answer
-  db.ref('rooms/'+roomId+'/answer').on('value', async snap=>{
-    const val = snap.val();
-    if(val && !pc.currentRemoteDescription){
-      await pc.setRemoteDescription(JSON.parse(val));
+  // listen for answer once
+  db.ref('rooms/'+roomId+'/answer').on('value', async snap => {
+    const v = snap.val();
+    if(v && !pc.currentRemoteDescription){
+      await pc.setRemoteDescription(JSON.parse(v));
     }
   });
 
-  // remote ICE candidates
-  db.ref('rooms/'+roomId+'/candidates').on('child_added', snap=>{
-    const c = snap.val();
-    try{
-      const cand = JSON.parse(c);
-      pc.addIceCandidate(cand).catch(()=>{});
-    }catch(e){}
+  // listen for callee ICE candidates
+  db.ref('rooms/'+roomId+'/calleeCandidates').on('child_added', snap => {
+    const v = snap.val();
+    try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
+  });
+
+  // also listen for callerCandidates in case they exist (rare)
+  db.ref('rooms/'+roomId+'/callerCandidates').on('child_added', snap => {
+    // we ignore our own candidates if caller
+    if(role !== 'caller'){
+      const v = snap.val();
+      try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
+    }
   });
 }
 
 async function joinCall(roomId){
-  createPeerConnection(roomId);
+  createPC(roomId);
 
   // get offer
   const offerSnap = await db.ref('rooms/'+roomId+'/offer').get();
-  const offerVal = offerSnap.val();
-  if(!offerVal) {
-    // no offer -> create
-    return await createCall(roomId);
-  }
-
-  const offer = JSON.parse(offerVal);
+  const offer = JSON.parse(offerSnap.val());
   await pc.setRemoteDescription(offer);
 
+  // create answer
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
 
-  // save answer
-  db.ref('rooms/'+roomId+'/answer').set(JSON.stringify(answer));
+  // store answer
+  await db.ref('rooms/'+roomId+'/answer').set(JSON.stringify(answer));
 
-  // ICE candidates
-  db.ref('rooms/'+roomId+'/candidates').on('child_added', snap=>{
-    const c = snap.val();
-    try{
-      const cand = JSON.parse(c);
-      pc.addIceCandidate(cand).catch(()=>{});
-    }catch(e){}
+  // listen for caller ICE candidates
+  db.ref('rooms/'+roomId+'/callerCandidates').on('child_added', snap => {
+    const v = snap.val();
+    try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
+  });
+
+  // listen for calleeCandidates and (if we are callee) handle them (our own will be pushed)
+  db.ref('rooms/'+roomId+'/calleeCandidates').on('child_added', snap => {
+    if(role !== 'callee'){
+      const v = snap.val();
+      try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
+    }
   });
 }
 
-/* ============== Chat (Realtime DB) ============== */
+/* ================= Chat (Realtime DB) ================= */
 function setupChatRealtime(roomId){
+  chatBox.innerHTML = ''; // clear
   const chatRef = db.ref('chat/'+roomId);
-  // show existing + future messages
-  chatRef.on('child_added', snap=>{
+  chatRef.off();
+  chatRef.on('child_added', snap => {
     const data = snap.val();
     if(!data) return;
-    appendMessageToChat(data);
+    appendChatMessage(data);
   });
 }
 
-// append message to chat box
-function appendMessageToChat(data){
+function appendChatMessage(data){
   const el = document.createElement('div');
-  el.className = 'msg ' + (data.sender === myNumber ? 'me' : 'them');
+  el.className = 'msg ' + (data.sender === GENERATED_CODE ? 'me' : 'them');
+  const meta = `<div class="meta">${data.sender === GENERATED_CODE ? 'You' : data.sender} • ${new Date(data.ts||Date.now()).toLocaleTimeString()}</div>`;
   if(data.type === 'text'){
-    el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong> ${escapeHtml(data.text)}`;
+    el.innerHTML = meta + `<div>${escapeHtml(data.text)}</div>`;
   } else if(data.type === 'file'){
-    // image or video preview
     if(data.mimetype && data.mimetype.startsWith('image')){
-      el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong><br><a href="${data.url}" target="_blank"><img src="${data.url}" class="file-thumb" /></a>`;
+      el.innerHTML = meta + `<a href="${data.url}" target="_blank"><img src="${data.url}" class="file-thumb"/></a>`;
     } else if(data.mimetype && data.mimetype.startsWith('video')){
-      el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong><br><a href="${data.url}" target="_blank"><video class="file-thumb" controls src="${data.url}"></video></a>`;
+      el.innerHTML = meta + `<a href="${data.url}" target="_blank"><video class="file-thumb" controls src="${data.url}"></video></a>`;
     } else {
-      el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong><br><a href="${data.url}" target="_blank">${escapeHtml(data.name || 'file')}</a>`;
+      el.innerHTML = meta + `<a href="${data.url}" target="_blank">${escapeHtml(data.name||'file')}</a>`;
     }
+  } else {
+    el.innerHTML = meta + `<div>Unknown message</div>`;
   }
   chatBox.appendChild(el);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-/* ============== Send Chat Message ============== */
+/* ============== Send chat text ============== */
 sendBtn.onclick = sendChat;
-chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
+chatInput.addEventListener('keydown', e => { if(e.key==='Enter') sendChat(); });
 
 function sendChat(){
   const txt = chatInput.value.trim();
   if(!txt) return;
   db.ref('chat/'+ROOM_ID).push({
-    sender: myNumber,
+    sender: GENERATED_CODE,
     type: 'text',
     text: txt,
     ts: Date.now()
@@ -320,43 +355,41 @@ function sendChat(){
   chatInput.value = '';
 }
 
-/* ============== File upload (Storage) ============== */
-fileBtn.onclick = ()=> fileInput.click();
-fileInput.onchange = async(e) => {
+/* ============== File upload ============== */
+fileBtn.onclick = () => fileInput.click();
+fileInput.onchange = async (e) => {
   const file = e.target.files[0];
   if(!file) return;
-  // limit ~20MB
-  const MAX = 20 * 1024 * 1024;
-  if(file.size > MAX){ alert('File too large (max 20MB)'); return; }
+  const MAX = 25 * 1024 * 1024;
+  if(file.size > MAX){ alert('File too large (max 25MB)'); return; }
 
-  const path = 'chatFiles/'+ROOM_ID+'/'+Date.now()+'_'+file.name;
+  const path = 'chatFiles/' + ROOM_ID + '/' + Date.now() + '_' + file.name;
   const ref = storage.ref(path);
   const uploadTask = ref.put(file);
 
-  // optional: show uploading notice
-  const upMsg = document.createElement('div'); upMsg.className='msg me'; upMsg.textContent = 'Uploading...'; chatBox.appendChild(upMsg); chatBox.scrollTop = chatBox.scrollHeight;
+  // show temporary uploading message
+  const tmp = document.createElement('div'); tmp.className='msg me'; tmp.textContent = 'Uploading...'; chatBox.appendChild(tmp); chatBox.scrollTop = chatBox.scrollHeight;
 
   uploadTask.on('state_changed',
     snapshot => {},
-    err => { alert('Upload error: '+err.message); upMsg.remove(); },
-    async ()=> {
+    err => { alert('Upload error: ' + err.message); tmp.remove(); },
+    async () => {
       const url = await ref.getDownloadURL();
       db.ref('chat/'+ROOM_ID).push({
-        sender: myNumber,
+        sender: GENERATED_CODE,
         type: 'file',
         url,
         name: file.name,
         mimetype: file.type,
         ts: Date.now()
       });
-      upMsg.remove();
+      tmp.remove();
     }
   );
-
   fileInput.value = '';
 };
 
-/* ============== Screen Share ============== */
+/* ============== Screen share ============== */
 shareBtn.onclick = async () => {
   if(!pc){
     alert('Connection not ready yet.');
@@ -366,64 +399,55 @@ shareBtn.onclick = async () => {
     try{
       const screenStream = await navigator.mediaDevices.getDisplayMedia({video:true});
       screenTrack = screenStream.getVideoTracks()[0];
-      // replace the outbound video track
+      // find sender for video and replace
       const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
       if(sender){
         await sender.replaceTrack(screenTrack);
       } else {
-        // fallback: addTrack
         pc.addTrack(screenTrack, screenStream);
       }
       isSharing = true;
       shareBtn.textContent = '🛑 Stop';
-      screenTrack.onended = () => { stopScreenShare(); };
+      screenTrack.onended = () => stopShare();
     } catch(err){
       console.error('Screen share failed', err);
     }
   } else {
-    stopScreenShare();
+    stopShare();
   }
 };
 
-async function stopScreenShare(){
+async function stopShare(){
   if(!pc) return;
-  // replace with local camera track
   const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-  const cameraTrack = localStream && localStream.getVideoTracks()[0];
-  if(sender && cameraTrack){
-    await sender.replaceTrack(cameraTrack);
+  const camTrack = localStream && localStream.getVideoTracks()[0];
+  if(sender && camTrack){
+    await sender.replaceTrack(camTrack);
   }
-  // stop screen track if exists
   try{ screenTrack && screenTrack.stop(); }catch(e){}
   isSharing = false;
   shareBtn.textContent = '📺 Share';
 }
 
-/* ============== Camera Switch ============== */
+/* ============== Camera switch ============== */
 switchBtn.onclick = async () => {
   try{
-    // stop existing video track
-    const videoTrack = localStream && localStream.getVideoTracks()[0];
-    if(videoTrack) videoTrack.stop();
-    // toggle facingMode: try environment then user
-    const currentFacing = videoTrack && videoTrack.label && /front|user/i.test(videoTrack.label) ? 'environment' : 'user';
-    // try environment first
-    const newStream = await navigator.mediaDevices.getUserMedia({video:{facingMode: 'environment'}, audio:true});
-    // if environment fails, fallback to user
-    if(!newStream || !newStream.getVideoTracks().length){
-      localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:true});
-    } else {
+    const currentTrack = localStream && localStream.getVideoTracks()[0];
+    if(currentTrack) currentTrack.stop();
+    // try environment, fallback to user
+    let newStream = null;
+    try{ newStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:true}); }
+    catch(err){ newStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:true}); }
+    if(newStream){
       localStream = newStream;
+      localVideo.srcObject = localStream;
+      const sender = pc && pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      const camTrack = localStream.getVideoTracks()[0];
+      if(sender && camTrack) await sender.replaceTrack(camTrack);
     }
-    // update local video
-    localVideo.srcObject = localStream;
-    // replace track in PeerConnection
-    const sender = pc && pc.getSenders().find(s=>s.track && s.track.kind === 'video');
-    const cameraTrack = localStream.getVideoTracks()[0];
-    if(sender && cameraTrack){
-      await sender.replaceTrack(cameraTrack);
-    }
-  } catch(err){ console.error('Switch error', err); }
+  } catch(err){
+    console.error('Switch camera error', err);
+  }
 };
 
 /* ============== Mute / Speaker ============== */
@@ -440,25 +464,19 @@ speakerBtn.onclick = () => {
   speakerBtn.textContent = speakerOn ? '🔊' : '🔈';
 };
 
-/* ============== End Call ============== */
-endBtn.onclick = () => {
-  // optional: cleanup DB nodes (be careful in multi-user setup) — here we keep it simple
-  try{
-    pc && pc.close();
-  }catch(e){}
-  // reload page to reset
+/* ============== End call ============== */
+endBtn.onclick = async () => {
+  try{ pc && pc.close(); }catch(e){}
   location.reload();
 };
 
-/* ============== UI helpers ============== */
-function setupUI(){
-  // toggle local video PIP on click
-  localVideo.addEventListener('click', ()=>{
-    localVideo.classList.toggle('small');
-  });
+/* ============== Chat UI helpers ============== */
+function showChatUI(show){
+  chatBox.style.display = show ? 'block' : 'none';
+  chatControls.style.display = show ? 'flex' : 'none';
 }
 
-// escape HTML
+/* ============== small helpers ============== */
 function escapeHtml(str){
   if(!str) return '';
   return String(str).replace(/[&<>"'`=\/]/g, s => {
@@ -466,11 +484,11 @@ function escapeHtml(str){
   });
 }
 
-/* ============== Safety / Debug helpers ============== */
+/* ============== Clean up on unload ============== */
 window.addEventListener('beforeunload', ()=>{
-  // close pc
   try{ pc && pc.close(); }catch(e){}
 });
+
 </script>
 </body>
 </html>
