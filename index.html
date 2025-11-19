@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Kexy — video + chat + files + screenshare</title>
+<title>Kexy — create room with code (same link)</title>
 
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -13,34 +13,24 @@
 <style>
   :root{ --accent:#0095f6; --bg: linear-gradient(135deg,#f09433,#cc2366); }
   html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);}
-  /* Number screen */
-  #numberScreen{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;z-index:9999}
-  #numberScreen h2{margin:0 0 10px;font-size:20px}
-  #numberScreen input{width:200px;padding:12px;border-radius:10px;border:none;font-size:18px;text-align:center}
-  #numberScreen button{margin-top:10px;padding:10px 16px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:700}
-  #showCode{color:#9fff9f;margin-top:12px;font-size:20px;font-weight:700}
-
-  /* main */
-  .app{display:none;position:relative;height:100vh;box-sizing:border-box;padding:8px;display:flex;flex-direction:column;gap:8px}
+  .center{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:8px;color:#fff}
+  .btn{padding:10px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}
+  .small{padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.08);color:#fff}
+  .app{display:none;height:100vh;box-sizing:border-box;padding:8px;display:flex;flex-direction:column;gap:8px}
   .video-wrap{flex:1;border-radius:12px;overflow:hidden;background:#000;position:relative;display:flex;align-items:center;justify-content:center}
   video{width:100%;height:100%;object-fit:cover;display:block}
   #localVideo{position:absolute;right:14px;bottom:110px;width:120px;height:160px;border-radius:12px;border:2px solid rgba(255,255,255,0.9);background:#000;z-index:50;cursor:pointer}
-
   .controls{display:flex;gap:10px;justify-content:center;padding:8px}
   .controls button{padding:10px 12px;border-radius:999px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:16px}
   .controls button.end{background:#ff3b30}
-
   /* chat */
   #chatBox{position:fixed;left:12px;right:12px;bottom:150px;height:210px;background:rgba(255,255,255,0.95);border-radius:12px;padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px;z-index:60}
   .msg{max-width:78%;padding:8px;border-radius:10px;background:#f1f1f1;color:#111}
   .msg.me{align-self:flex-end;background:#dcf8c6}
-  .msg .meta{font-size:12px;color:#666;margin-bottom:6px}
   #chatControls{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:8px;z-index:61}
   #chatControls input[type=text]{flex:1;padding:10px;border-radius:10px;border:1px solid #ddd}
   #chatControls button{padding:10px 12px;border-radius:10px;border:none;background:var(--accent);color:#fff}
-
   .file-thumb{max-width:200px;border-radius:8px;display:block}
-
   @media(min-width:900px){
     .app{max-width:900px;margin:12px auto;height:94vh}
     #localVideo{right:18px;bottom:120px}
@@ -49,19 +39,29 @@
 </head>
 <body>
 
-<!-- Number / Access code screen -->
-<div id="numberScreen">
-  <h2>Enter 4-digit Access Code</h2>
-  <input id="numberInput" maxlength="4" inputmode="numeric" placeholder="XXXX" />
-  <button id="numberBtn">Continue</button>
-  <div id="showCode">Your Code: —</div>
-  <p id="numError" style="color:#ff9999;margin-top:8px"></p>
-  <p style="color:#ddd;margin-top:10px;font-size:13px">Share this code with only the person you want to allow.</p>
+<!-- START UI (same link for both) -->
+<div id="startScreen" class="center">
+  <h2 style="margin:0">Kexy — One Link, Create Room or Join</h2>
+  <div style="display:flex;gap:10px;margin-top:6px">
+    <button id="createBtn" class="btn">Create Room (Host)</button>
+    <button id="joinBtn" class="small">Join Room (Guest)</button>
+  </div>
+  <div id="hostUI" style="display:none;margin-top:12px;gap:8px;flex-direction:column;align-items:center">
+    <input id="hostCodeInput" maxlength="4" placeholder="Enter 4-digit code" style="padding:10px;border-radius:8px;border:none;font-size:18px;text-align:center" />
+    <button id="startRoomBtn" class="btn">Start Room & Start Call</button>
+    <p style="color:#ddd;margin-top:8px;font-size:13px">Share this code only with the person you want to allow.</p>
+  </div>
+
+  <div id="guestUI" style="display:none;margin-top:12px;gap:8px;flex-direction:column;align-items:center">
+    <input id="guestCodeInput" maxlength="4" placeholder="Enter host's 4-digit code" style="padding:10px;border-radius:8px;border:none;font-size:18px;text-align:center" />
+    <button id="tryJoinBtn" class="btn">Join with Code</button>
+    <p id="joinMsg" style="color:#ffdddd;margin-top:6px"></p>
+  </div>
 </div>
 
-<!-- App -->
+<!-- APP -->
 <div class="app" id="app">
-  <div class="video-wrap" id="videoWrap">
+  <div class="video-wrap">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay muted playsinline></video>
   </div>
@@ -85,7 +85,7 @@
 </div>
 
 <script>
-/* ================= Firebase Config - replace with your own for production ================= */
+/* ================= Firebase Config - replace with your own in production ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyCdaMeWKKI7P8_sNeVbjs4eRlnufQItlJI",
   authDomain: "video-call-a9749.firebaseapp.com",
@@ -100,13 +100,17 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const storage = firebase.storage();
 
-/* ================= Constants & UI refs ================= */
-const ROOM_ID = "kexyroom"; // fixed room for both
-const numberScreen = document.getElementById('numberScreen');
-const numberInput = document.getElementById('numberInput');
-const numberBtn = document.getElementById('numberBtn');
-const showCodeEl = document.getElementById('showCode');
-const numError = document.getElementById('numError');
+/* ================= UI elements ================= */
+const startScreen = document.getElementById('startScreen');
+const createBtn = document.getElementById('createBtn');
+const joinBtn = document.getElementById('joinBtn');
+const hostUI = document.getElementById('hostUI');
+const guestUI = document.getElementById('guestUI');
+const hostCodeInput = document.getElementById('hostCodeInput');
+const startRoomBtn = document.getElementById('startRoomBtn');
+const guestCodeInput = document.getElementById('guestCodeInput');
+const tryJoinBtn = document.getElementById('tryJoinBtn');
+const joinMsg = document.getElementById('joinMsg');
 
 const appDiv = document.getElementById('app');
 const localVideo = document.getElementById('localVideo');
@@ -126,228 +130,205 @@ const fileBtn = document.getElementById('fileBtn');
 const fileInput = document.getElementById('fileInput');
 
 /* ================= State ================= */
-let GENERATED_CODE = null;
-let myCode = null; // user-entered
+const ROOM_ID = "kexyroom";
+let role = null; // 'host' or 'guest'
+let hostCode = null; // stored in DB when host creates
 let pc = null;
 let localStream = null;
-let isMuted = false;
-let speakerOn = true;
 let isSharing = false;
 let screenTrack = null;
-let role = null; // "caller" or "callee"
 
-/* =============== Generate 4-digit code on each load =============== */
-function generate4Digit(){
-  return Math.floor(1000 + Math.random() * 9000).toString();
-}
-GENERATED_CODE = generate4Digit();
-showCodeEl.innerText = "Your Code: " + GENERATED_CODE;
-console.log("Access Code:", GENERATED_CODE);
+/* ============== initial actions ============== */
+createBtn.onclick = () => {
+  hostUI.style.display = 'flex';
+  guestUI.style.display = 'none';
+  joinMsg.innerText = '';
+};
+joinBtn.onclick = () => {
+  guestUI.style.display = 'flex';
+  hostUI.style.display = 'none';
+  joinMsg.innerText = '';
+};
 
-/* =============== Number check UI =============== */
-numberBtn.onclick = () => tryEnter();
-numberInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryEnter(); });
+/* ============== HOST: create room with code & start call ============== */
+startRoomBtn.onclick = async () => {
+  const code = (hostCodeInput.value || '').trim();
+  if(!/^\d{4}$/.test(code)){ alert('Enter a 4-digit code'); return; }
+  // save code to DB
+  await db.ref('rooms/'+ROOM_ID+'/meta').set({ hostCode: code, createdAt: Date.now() });
+  hostCode = code;
+  role = 'host';
+  // hide start UI and show app
+  startScreen.style.display = 'none';
+  appDiv.style.display = 'flex';
+  chatBox.style.display = 'block';
+  chatControls.style.display = 'flex';
+  // start camera and create call
+  await startLocalCamera();
+  await createCall(ROOM_ID);
+  console.log('Room created with code', code);
+};
 
-function tryEnter(){
-  const val = numberInput.value.trim();
-  if(val === GENERATED_CODE){
-    myCode = val;
-    numberScreen.style.display = 'none';
-    appDiv.style.display = 'flex';
-    startApp();
-  } else {
-    numError.innerText = 'Wrong code!';
-    setTimeout(()=> numError.innerText = '',2000);
+/* ============== GUEST: enter code to join ============== */
+tryJoinBtn.onclick = async () => {
+  const code = (guestCodeInput.value || '').trim();
+  if(!/^\d{4}$/.test(code)){ joinMsg.innerText = 'Enter a valid 4-digit code'; return; }
+  // read host code from DB
+  const metaSnap = await db.ref('rooms/'+ROOM_ID+'/meta').get();
+  const meta = metaSnap.val();
+  if(!meta || !meta.hostCode){
+    joinMsg.innerText = 'Host has not created the room yet.';
+    return;
   }
-}
+  if(code !== meta.hostCode){
+    joinMsg.innerText = 'Incorrect code.';
+    return;
+  }
+  // code matches → join
+  hostCode = meta.hostCode;
+  role = 'guest';
+  startScreen.style.display = 'none';
+  appDiv.style.display = 'flex';
+  chatBox.style.display = 'block';
+  chatControls.style.display = 'flex';
+  await startLocalCamera();
+  await joinCall(ROOM_ID);
+  console.log('Joined as guest with code', code);
+};
 
-/* ================= Top-level start ================= */
-async function startApp(){
-  await startLocalCamera({video:{facingMode:'user'}, audio:true});
-  showChatUI(true);
-  await setupCallAndSignaling(ROOM_ID);
-  setupChatRealtime(ROOM_ID);
-}
-
-/* ================= Local camera ================= */
-async function startLocalCamera(constraints){
+/* ============== Local camera ============== */
+async function startLocalCamera(){
   try{
-    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
     localVideo.srcObject = localStream;
-  } catch(err){
-    alert('Camera/Microphone access required: ' + err.message);
+  }catch(err){
+    alert('Camera/Mic access required: ' + err.message);
     console.error(err);
   }
 }
 
-/* ================= STUN servers ================= */
+/* ============== STUN servers ============== */
 const servers = {
   iceServers: [
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" }
-    // For production add TURN server here
   ]
 };
 
-/* ================= Signaling & Call ================= */
-async function setupCallAndSignaling(roomId){
-  // Determine if offer exists
-  const offerSnap = await db.ref('rooms/'+roomId+'/offer').get();
-  const offerVal = offerSnap.val();
-
-  if(offerVal){
-    role = 'callee';
-    await joinCall(roomId);
-  } else {
-    role = 'caller';
-    await createCall(roomId);
-  }
-}
-
+/* ============== WebRTC: createCall & joinCall ============== */
 function createPC(roomId){
   pc = new RTCPeerConnection(servers);
+  if(localStream) localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
 
-  // add local tracks
-  if(localStream){
-    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-  }
-
-  // when remote track arrives
-  pc.ontrack = (e) => {
-    if(e.streams && e.streams[0]){
-      remoteVideo.srcObject = e.streams[0];
-    } else {
-      // fallback: create stream
-      const inbound = new MediaStream();
-      inbound.addTrack(e.track);
-      remoteVideo.srcObject = inbound;
+  pc.ontrack = e => {
+    if(e.streams && e.streams[0]) remoteVideo.srcObject = e.streams[0];
+    else {
+      const ms = new MediaStream();
+      e.track && ms.addTrack(e.track);
+      remoteVideo.srcObject = ms;
     }
   };
 
-  // ICE candidate -> push to DB (role-specific)
   pc.onicecandidate = e => {
     if(!e.candidate) return;
     const json = JSON.stringify(e.candidate);
-    if(role === 'caller'){
+    if(role === 'host'){
       db.ref('rooms/'+roomId+'/callerCandidates').push(json);
-    } else if(role === 'callee'){
+    } else {
       db.ref('rooms/'+roomId+'/calleeCandidates').push(json);
     }
   };
 
-  pc.onconnectionstatechange = () => {
-    console.log('PC state:', pc.connectionState);
-  };
-
+  pc.onconnectionstatechange = ()=> console.log('pc state', pc.connectionState);
   return pc;
 }
 
 async function createCall(roomId){
   createPC(roomId);
-
-  // create offer
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-
-  // store offer
   await db.ref('rooms/'+roomId+'/offer').set(JSON.stringify(offer));
 
-  // listen for answer once
-  db.ref('rooms/'+roomId+'/answer').on('value', async snap => {
-    const v = snap.val();
-    if(v && !pc.currentRemoteDescription){
-      await pc.setRemoteDescription(JSON.parse(v));
+  // listen for answer
+  db.ref('rooms/'+roomId+'/answer').on('value', async snap=>{
+    const val = snap.val();
+    if(val && !pc.currentRemoteDescription){
+      await pc.setRemoteDescription(JSON.parse(val));
     }
   });
 
-  // listen for callee ICE candidates
-  db.ref('rooms/'+roomId+'/calleeCandidates').on('child_added', snap => {
-    const v = snap.val();
-    try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
-  });
-
-  // also listen for callerCandidates in case they exist (rare)
-  db.ref('rooms/'+roomId+'/callerCandidates').on('child_added', snap => {
-    // we ignore our own candidates if caller
-    if(role !== 'caller'){
-      const v = snap.val();
-      try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
-    }
+  // listen for callee candidates
+  db.ref('rooms/'+roomId+'/calleeCandidates').on('child_added', snap=>{
+    const c = snap.val();
+    try{ pc.addIceCandidate(JSON.parse(c)).catch(()=>{}); } catch(e){}
   });
 }
 
 async function joinCall(roomId){
   createPC(roomId);
 
-  // get offer
   const offerSnap = await db.ref('rooms/'+roomId+'/offer').get();
-  const offer = JSON.parse(offerSnap.val());
+  const offerVal = offerSnap.val();
+  if(!offerVal){
+    alert('Host offer not ready yet. Ask host to start the room.');
+    return;
+  }
+  const offer = JSON.parse(offerVal);
   await pc.setRemoteDescription(offer);
 
-  // create answer
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
-
-  // store answer
   await db.ref('rooms/'+roomId+'/answer').set(JSON.stringify(answer));
 
-  // listen for caller ICE candidates
-  db.ref('rooms/'+roomId+'/callerCandidates').on('child_added', snap => {
-    const v = snap.val();
-    try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
+  // listen for caller candidates
+  db.ref('rooms/'+roomId+'/callerCandidates').on('child_added', snap=>{
+    const c = snap.val();
+    try{ pc.addIceCandidate(JSON.parse(c)).catch(()=>{}); } catch(e){}
   });
 
-  // listen for calleeCandidates and (if we are callee) handle them (our own will be pushed)
-  db.ref('rooms/'+roomId+'/calleeCandidates').on('child_added', snap => {
-    if(role !== 'callee'){
-      const v = snap.val();
-      try{ pc.addIceCandidate(JSON.parse(v)).catch(()=>{}); } catch(e){}
-    }
-  });
+  // push our own callee candidates handled in createPC
 }
 
-/* ================= Chat (Realtime DB) ================= */
+/* ============== Chat realtime ============== */
 function setupChatRealtime(roomId){
-  chatBox.innerHTML = ''; // clear
-  const chatRef = db.ref('chat/'+roomId);
-  chatRef.off();
-  chatRef.on('child_added', snap => {
+  chatBox.innerHTML = '';
+  const ref = db.ref('chat/'+roomId);
+  ref.off();
+  ref.on('child_added', snap=>{
     const data = snap.val();
     if(!data) return;
-    appendChatMessage(data);
+    appendChat(data);
   });
 }
 
-function appendChatMessage(data){
+function appendChat(data){
   const el = document.createElement('div');
-  el.className = 'msg ' + (data.sender === GENERATED_CODE ? 'me' : 'them');
-  const meta = `<div class="meta">${data.sender === GENERATED_CODE ? 'You' : data.sender} • ${new Date(data.ts||Date.now()).toLocaleTimeString()}</div>`;
+  el.className = 'msg ' + (data.sender === (role==='host'? 'host': 'guest') ? 'me' : '');
+  const meta = `<div style="font-size:12px;color:#666;margin-bottom:6px">${data.sender} • ${new Date(data.ts||Date.now()).toLocaleTimeString()}</div>`;
   if(data.type === 'text'){
     el.innerHTML = meta + `<div>${escapeHtml(data.text)}</div>`;
   } else if(data.type === 'file'){
     if(data.mimetype && data.mimetype.startsWith('image')){
       el.innerHTML = meta + `<a href="${data.url}" target="_blank"><img src="${data.url}" class="file-thumb"/></a>`;
     } else if(data.mimetype && data.mimetype.startsWith('video')){
-      el.innerHTML = meta + `<a href="${data.url}" target="_blank"><video class="file-thumb" controls src="${data.url}"></video></a>`;
+      el.innerHTML = meta + `<a href="${data.url}" target="_blank"><video controls class="file-thumb" src="${data.url}"></video></a>`;
     } else {
       el.innerHTML = meta + `<a href="${data.url}" target="_blank">${escapeHtml(data.name||'file')}</a>`;
     }
-  } else {
-    el.innerHTML = meta + `<div>Unknown message</div>`;
   }
   chatBox.appendChild(el);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-/* ============== Send chat text ============== */
-sendBtn.onclick = sendChat;
-chatInput.addEventListener('keydown', e => { if(e.key==='Enter') sendChat(); });
+/* ============== Chat send & file upload ============== */
+sendBtn.onclick = ()=> sendMessage();
+chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
 
-function sendChat(){
+function sendMessage(){
   const txt = chatInput.value.trim();
   if(!txt) return;
   db.ref('chat/'+ROOM_ID).push({
-    sender: GENERATED_CODE,
+    sender: role === 'host' ? 'host' : 'guest',
     type: 'text',
     text: txt,
     ts: Date.now()
@@ -355,139 +336,143 @@ function sendChat(){
   chatInput.value = '';
 }
 
-/* ============== File upload ============== */
-fileBtn.onclick = () => fileInput.click();
-fileInput.onchange = async (e) => {
+fileBtn.onclick = ()=> fileInput.click();
+fileInput.onchange = async e => {
   const file = e.target.files[0];
   if(!file) return;
   const MAX = 25 * 1024 * 1024;
-  if(file.size > MAX){ alert('File too large (max 25MB)'); return; }
-
-  const path = 'chatFiles/' + ROOM_ID + '/' + Date.now() + '_' + file.name;
+  if(file.size > MAX){ alert('File too large (25MB max)'); return; }
+  const path = 'chatFiles/'+ROOM_ID+'/'+Date.now()+'_'+file.name;
   const ref = storage.ref(path);
-  const uploadTask = ref.put(file);
-
-  // show temporary uploading message
+  const up = ref.put(file);
   const tmp = document.createElement('div'); tmp.className='msg me'; tmp.textContent = 'Uploading...'; chatBox.appendChild(tmp); chatBox.scrollTop = chatBox.scrollHeight;
-
-  uploadTask.on('state_changed',
-    snapshot => {},
-    err => { alert('Upload error: ' + err.message); tmp.remove(); },
-    async () => {
-      const url = await ref.getDownloadURL();
-      db.ref('chat/'+ROOM_ID).push({
-        sender: GENERATED_CODE,
-        type: 'file',
-        url,
-        name: file.name,
-        mimetype: file.type,
-        ts: Date.now()
-      });
-      tmp.remove();
-    }
-  );
+  up.on('state_changed', ()=>{}, err=>{ alert(err.message); tmp.remove(); }, async ()=>{
+    const url = await ref.getDownloadURL();
+    db.ref('chat/'+ROOM_ID).push({
+      sender: role === 'host' ? 'host' : 'guest',
+      type: 'file',
+      url, name: file.name, mimetype: file.type, ts: Date.now()
+    });
+    tmp.remove();
+  });
   fileInput.value = '';
 };
 
 /* ============== Screen share ============== */
 shareBtn.onclick = async () => {
-  if(!pc){
-    alert('Connection not ready yet.');
-    return;
-  }
+  if(!pc){ alert('Connection not ready yet.'); return; }
   if(!isSharing){
     try{
       const screenStream = await navigator.mediaDevices.getDisplayMedia({video:true});
       screenTrack = screenStream.getVideoTracks()[0];
-      // find sender for video and replace
       const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if(sender){
-        await sender.replaceTrack(screenTrack);
-      } else {
-        pc.addTrack(screenTrack, screenStream);
-      }
-      isSharing = true;
-      shareBtn.textContent = '🛑 Stop';
+      if(sender) await sender.replaceTrack(screenTrack);
+      else pc.addTrack(screenTrack, screenStream);
+      isSharing = true; shareBtn.textContent = '🛑 Stop';
       screenTrack.onended = () => stopShare();
-    } catch(err){
-      console.error('Screen share failed', err);
-    }
-  } else {
-    stopShare();
-  }
+    }catch(err){ console.error(err); alert('Screen share failed: ' + err.message); }
+  } else stopShare();
 };
 
 async function stopShare(){
-  if(!pc) return;
-  const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+  const sender = pc && pc.getSenders().find(s=>s.track && s.track.kind === 'video');
   const camTrack = localStream && localStream.getVideoTracks()[0];
-  if(sender && camTrack){
-    await sender.replaceTrack(camTrack);
-  }
+  if(sender && camTrack) await sender.replaceTrack(camTrack);
   try{ screenTrack && screenTrack.stop(); }catch(e){}
-  isSharing = false;
-  shareBtn.textContent = '📺 Share';
+  isSharing = false; shareBtn.textContent = '📺 Share';
 }
 
-/* ============== Camera switch ============== */
-switchBtn.onclick = async () => {
+/* ============== Camera switch, mute, speaker, end ============== */
+switchBtn.onclick = async ()=>{
   try{
-    const currentTrack = localStream && localStream.getVideoTracks()[0];
-    if(currentTrack) currentTrack.stop();
-    // try environment, fallback to user
-    let newStream = null;
+    const cur = localStream && localStream.getVideoTracks()[0];
+    if(cur) cur.stop();
+    let newStream;
     try{ newStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:true}); }
-    catch(err){ newStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:true}); }
-    if(newStream){
-      localStream = newStream;
-      localVideo.srcObject = localStream;
+    catch(e){ newStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:true}); }
+    if(newStream){ localStream = newStream; localVideo.srcObject = localStream;
       const sender = pc && pc.getSenders().find(s => s.track && s.track.kind === 'video');
       const camTrack = localStream.getVideoTracks()[0];
       if(sender && camTrack) await sender.replaceTrack(camTrack);
     }
-  } catch(err){
-    console.error('Switch camera error', err);
-  }
+  }catch(e){ console.error(e); }
 };
 
-/* ============== Mute / Speaker ============== */
-muteBtn.onclick = () => {
+muteBtn.onclick = ()=> {
   if(!localStream) return;
-  isMuted = !isMuted;
-  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-  muteBtn.textContent = isMuted ? '🔇' : '🎤';
+  const val = !localStream.getAudioTracks()[0].enabled;
+  localStream.getAudioTracks().forEach(t=>t.enabled = val);
+  muteBtn.textContent = val ? '🔇' : '🎤';
 };
 
-speakerBtn.onclick = () => {
-  speakerOn = !speakerOn;
-  remoteVideo.muted = !speakerOn;
-  speakerBtn.textContent = speakerOn ? '🔊' : '🔈';
+speakerBtn.onclick = ()=> {
+  remoteVideo.muted = !remoteVideo.muted;
+  speakerBtn.textContent = remoteVideo.muted ? '🔈' : '🔊';
 };
 
-/* ============== End call ============== */
-endBtn.onclick = async () => {
+endBtn.onclick = ()=> {
   try{ pc && pc.close(); }catch(e){}
   location.reload();
 };
 
-/* ============== Chat UI helpers ============== */
-function showChatUI(show){
-  chatBox.style.display = show ? 'block' : 'none';
-  chatControls.style.display = show ? 'flex' : 'none';
+/* ============== Helpers ============== */
+function escapeHtml(str){ if(!str) return ''; return String(str).replace(/[&<>"'`=\/]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s])); }
+
+/* ============== When call created/joined, also start chat listening ============== */
+/* In createCall / joinCall after signaling setup, start chat listener */
+async function createCallWithChat(roomId){
+  await createCall(roomId);
+  setupChatRealtime(roomId);
+}
+async function joinCallWithChat(roomId){
+  await joinCall(roomId);
+  setupChatRealtime(roomId);
 }
 
-/* ============== small helpers ============== */
-function escapeHtml(str){
-  if(!str) return '';
-  return String(str).replace(/[&<>"'`=\/]/g, s => {
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s];
+/* To ensure chat starts, replace calls above */
+async function createCall(roomId){
+  createPC(roomId);
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await db.ref('rooms/'+roomId+'/offer').set(JSON.stringify(offer));
+
+  db.ref('rooms/'+roomId+'/answer').on('value', async snap=>{
+    const val = snap.val();
+    if(val && !pc.currentRemoteDescription){
+      await pc.setRemoteDescription(JSON.parse(val));
+    }
   });
+
+  db.ref('rooms/'+roomId+'/calleeCandidates').on('child_added', snap=>{
+    const c = snap.val();
+    try{ pc.addIceCandidate(JSON.parse(c)).catch(()=>{}); } catch(e){}
+  });
+
+  // start chat
+  setupChatRealtime(roomId);
 }
 
-/* ============== Clean up on unload ============== */
-window.addEventListener('beforeunload', ()=>{
-  try{ pc && pc.close(); }catch(e){}
-});
+async function joinCall(roomId){
+  createPC(roomId);
+  const offerSnap = await db.ref('rooms/'+roomId+'/offer').get();
+  const offerVal = offerSnap.val();
+  if(!offerVal){ alert('Host has not started the room yet.'); return; }
+  await pc.setRemoteDescription(JSON.parse(offerVal));
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  await db.ref('rooms/'+roomId+'/answer').set(JSON.stringify(answer));
+
+  db.ref('rooms/'+roomId+'/callerCandidates').on('child_added', snap=>{
+    const c = snap.val();
+    try{ pc.addIceCandidate(JSON.parse(c)).catch(()=>{}); } catch(e){}
+  });
+
+  // start chat
+  setupChatRealtime(roomId);
+}
+
+/* Clean-up on page unload */
+window.addEventListener('beforeunload', () => { try{ pc && pc.close(); }catch(e){} });
 
 </script>
 </body>
