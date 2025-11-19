@@ -2,82 +2,87 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
-<title>kexy</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>kexy — video + chat + screenshare</title>
 
-<!-- Firebase SDK -->
+<!-- Firebase (app, db, storage) -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 <style>
-  :root{
-    --accent:#0095f6;
-    --bg-gradient: linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);
-  }
-  html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg-gradient);}
+  :root{ --accent:#0095f6; --bg:linear-gradient(135deg,#f09433,#cc2366); }
+  html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);}
+  /* number screen */
+  #numberScreen{position:fixed;inset:0;background:rgba(0,0,0,0.86);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;z-index:9999}
+  #numberScreen h2{margin:0 0 10px;font-size:20px}
+  #numberScreen input{width:200px;padding:12px;border-radius:10px;border:none;font-size:18px;text-align:center}
+  #numberScreen button{margin-top:10px;padding:10px 16px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:700}
 
-  /* NUMBER SCREEN */
-  #numberScreen{
-    position:fixed;inset:0;background:rgba(0,0,0,0.85);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    z-index:9999;color:white;
-  }
-  #numberScreen h2{margin:0 0 14px;font-size:22px;}
-  #numberScreen input{
-    width:180px;padding:12px;font-size:20px;text-align:center;
-    border-radius:10px;border:none;outline:none;
-  }
-  #numberScreen button{
-    margin-top:12px;padding:10px 18px;border-radius:10px;
-    border:none;background:var(--accent);color:#fff;font-weight:600
-  }
+  /* main app */
+  .app{display:none;position:relative;height:100vh;box-sizing:border-box;padding:8px;gap:8px;display:flex;flex-direction:column}
+  .video-wrap{flex:1;border-radius:12px;overflow:hidden;background:#000;position:relative;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:cover;display:block}
+  #localVideo{position:absolute;right:12px;bottom:100px;width:120px;height:160px;border-radius:12px;border:2px solid rgba(255,255,255,0.9);background:#000;z-index:40;cursor:pointer}
 
-  /* MAIN APP */
-  .app {position:relative;width:100%;height:100vh;display:none;flex-direction:column;gap:6px;padding:8px;box-sizing:border-box;}
-  .video-wrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;border-radius:12px;overflow:hidden;background:#000}
-  video{display:block;object-fit:cover;width:100%;height:100%}
-  #localVideo{
-    position:absolute;right:12px;bottom:110px;width:110px;height:150px;
-    border-radius:10px;border:2px solid rgba(255,255,255,0.9);background:#000;
-  }
-
-  .controls{
-    display:flex;gap:12px;justify-content:center;padding:8px;
-  }
-  .controls button{
-    flex:0 0 78px;height:48px;border-radius:999px;border:none;
-    background:rgba(0,0,0,0.6);color:white;font-size:18px;
-  }
+  .controls{display:flex;gap:10px;justify-content:center;padding:10px}
+  .controls button{padding:10px 14px;border-radius:999px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:16px}
   .controls button.end{background:#ff3b30}
+
+  /* chat panel overlay (bottom) */
+  #chatBox{position:fixed;left:12px;right:12px;bottom:88px;height:180px;background:rgba(255,255,255,0.92);border-radius:12px;padding:8px;overflow:auto;display:flex;flex-direction:column;gap:8px;z-index:30}
+  .msg{max-width:78%;padding:8px;border-radius:10px;background:#f1f1f1;color:#111}
+  .msg.me{align-self:flex-end;background:#dcf8c6}
+  #chatControls{position:fixed;left:12px;right:12px;bottom:12px;display:flex;gap:8px;z-index:31}
+  #chatControls input[type=text]{flex:1;padding:10px;border-radius:10px;border:1px solid #ddd}
+  #chatControls button{padding:10px 12px;border-radius:10px;border:none;background:var(--accent);color:#fff}
+
+  /* file previews */
+  .file-thumb{max-width:180px;border-radius:8px;display:block}
+
+  @media(min-width:900px){
+    .app{max-width:900px;margin:12px auto;height:94vh}
+    #localVideo{right:18px;bottom:120px}
+  }
 </style>
 </head>
 <body>
 
-<!-- NUMBER INPUT SCREEN -->
+<!-- NUMBER SCREEN -->
 <div id="numberScreen">
-  <h2>Enter Your Mobile Number</h2>
+  <h2>Enter Mobile Number to Join</h2>
   <input id="numberInput" maxlength="10" inputmode="numeric" placeholder="10-digit number" />
   <button id="numberBtn">Continue</button>
-  <p id="numError" style="color:#ff8888;margin-top:10px"></p>
+  <p id="numError" style="color:#ff9b9b;margin-top:8px"></p>
 </div>
 
 <!-- APP -->
 <div class="app" id="app">
-  <div class="video-wrap">
+  <div class="video-wrap" id="videoWrap">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay muted playsinline></video>
   </div>
 
   <div class="controls">
-    <button id="switchBtn">🔄</button>
+    <button id="switchBtn">🔄 Switch</button>
+    <button id="shareBtn">📺 Share</button>
     <button id="muteBtn">🎤</button>
     <button id="speakerBtn">🔊</button>
-    <button id="endBtn" class="end">❌</button>
+    <button id="endBtn" class="end">❌ End</button>
   </div>
 </div>
 
+<!-- CHAT (hidden until call starts) -->
+<div id="chatBox" style="display:none"></div>
+<div id="chatControls" style="display:none">
+  <input type="text" id="chatInput" placeholder="Type a message..." />
+  <input type="file" id="fileInput" accept="image/*,video/*" style="display:none" />
+  <button id="fileBtn">📎</button>
+  <button id="sendBtn">Send</button>
+</div>
+
 <script>
-// ----------- Firebase Config -----------
+/* ================= Firebase Config ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyCdaMeWKKI7P8_sNeVbjs4eRlnufQItlJI",
   authDomain: "video-call-a9749.firebaseapp.com",
@@ -90,125 +95,382 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const storage = firebase.storage();
 
-
-// ----------- Number Check -----------
+/* ================= Constants & UI ================= */
 const ALLOWED_NUMBER = "9575669078";
-const numberScreen = document.getElementById("numberScreen");
-const numberInput = document.getElementById("numberInput");
-const numberBtn = document.getElementById("numberBtn");
-const numError = document.getElementById("numError");
-const appDiv = document.getElementById("app");
+const ROOM_ID = "kexyroom"; // fixed room
+const numberScreen = document.getElementById('numberScreen');
+const numberInput = document.getElementById('numberInput');
+const numberBtn = document.getElementById('numberBtn');
+const numError = document.getElementById('numError');
 
-numberBtn.onclick = () => checkNumber();
+const appDiv = document.getElementById('app');
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
 
-function checkNumber(){
-  const num = numberInput.value.trim();
-  if(num === ALLOWED_NUMBER){
-    numberScreen.style.display="none";
-    appDiv.style.display="flex";
-    initCall();
+const switchBtn = document.getElementById('switchBtn');
+const shareBtn = document.getElementById('shareBtn');
+const muteBtn = document.getElementById('muteBtn');
+const speakerBtn = document.getElementById('speakerBtn');
+const endBtn = document.getElementById('endBtn');
+
+const chatBox = document.getElementById('chatBox');
+const chatControls = document.getElementById('chatControls');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const fileBtn = document.getElementById('fileBtn');
+const fileInput = document.getElementById('fileInput');
+
+/* ================= State ================= */
+let myNumber = null;
+let pc = null;
+let localStream = null;
+let isMuted = false;
+let speakerOn = true;
+let isSharing = false;
+let screenTrack = null;
+
+/* ================= Number check ================= */
+numberBtn.onclick = () => attemptJoin();
+numberInput.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptJoin(); });
+
+function attemptJoin(){
+  const n = numberInput.value.trim();
+  if(n === ALLOWED_NUMBER){
+    myNumber = n;
+    numberScreen.style.display = 'none';
+    appDiv.style.display = 'flex';
+    startApp();
   } else {
-    numError.textContent = "Invalid Number!";
-    setTimeout(()=> numError.textContent="",2000);
+    numError.textContent = 'Invalid Number — contact admin.';
+    setTimeout(()=> numError.textContent = '',2000);
   }
 }
 
-
-// ----------- WebRTC -----------
-let localStream, pc;
-const remoteVideo = document.getElementById("remoteVideo");
-const localVideo = document.getElementById("localVideo");
-
-// FIXED ROOM ID
-const ROOM_ID = "kexyroom";
-
-async function initCall(){
-  await startCamera();
-  checkRoom(ROOM_ID);
+/* ================= Top-level start ================= */
+async function startApp(){
+  await startLocalCamera({video:{facingMode:'user'}, audio:true});
+  setupUI();
+  // show chat UI
+  chatBox.style.display = 'block';
+  chatControls.style.display = 'flex';
+  await setupSignalingAndCall(ROOM_ID);
+  setupChatRealtime(ROOM_ID);
 }
 
-async function startCamera(){
-  localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-  localVideo.srcObject = localStream;
-}
-
-async function checkRoom(id){
-  const offerSnap = await db.ref("rooms/"+id+"/offer").get();
-
-  if(offerSnap.exists()){
-    joinCall(id);
-  } else {
-    createCall(id);
+/* ============== Local camera ============== */
+async function startLocalCamera(constraints){
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    localVideo.srcObject = localStream;
+  } catch(err){
+    alert('Grant camera/mic access: '+err.message);
+    console.error(err);
   }
 }
 
-async function createCall(id){
+/* ============== WebRTC Signaling (Firebase RTDB) ============== */
+async function setupSignalingAndCall(roomId){
+  // check if offer exists -> join, else create
+  const offerSnap = await db.ref('rooms/'+roomId+'/offer').get();
+  if(offerSnap.exists() && offerSnap.val()){
+    await joinCall(roomId);
+  } else {
+    await createCall(roomId);
+  }
+}
+
+function createPeerConnection(roomId){
   pc = new RTCPeerConnection();
-  localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
 
-  pc.ontrack = e => remoteVideo.srcObject = e.streams[0];
-  pc.onicecandidate = e => { if(e.candidate) db.ref("rooms/"+id+"/candidates").push(JSON.stringify(e.candidate)); };
+  // add local tracks
+  if(localStream){
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  }
+
+  // remote track
+  pc.ontrack = (e) => {
+    if(e.streams && e.streams[0]){
+      remoteVideo.srcObject = e.streams[0];
+    } else {
+      // fallback: create stream from tracks
+      const inbound = new MediaStream();
+      e.track && inbound.addTrack(e.track);
+      remoteVideo.srcObject = inbound;
+    }
+  };
+
+  // ice -> push to DB
+  pc.onicecandidate = e => {
+    if(e.candidate){
+      db.ref('rooms/'+roomId+'/candidates').push(JSON.stringify(e.candidate));
+    }
+  };
+
+  // cleanup on connection state
+  pc.onconnectionstatechange = () => {
+    if(pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed'){
+      // keep simple: do nothing (user can press End)
+    }
+  };
+}
+
+async function createCall(roomId){
+  createPeerConnection(roomId);
 
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
-  db.ref("rooms/"+id+"/offer").set(JSON.stringify(offer));
 
-  db.ref("rooms/"+id+"/answer").on("value", async snap=>{
-    if(snap.val() && !pc.currentRemoteDescription){
-      await pc.setRemoteDescription(JSON.parse(snap.val()));
+  // save offer
+  db.ref('rooms/'+roomId+'/offer').set(JSON.stringify(offer));
+
+  // listen for answer
+  db.ref('rooms/'+roomId+'/answer').on('value', async snap=>{
+    const val = snap.val();
+    if(val && !pc.currentRemoteDescription){
+      await pc.setRemoteDescription(JSON.parse(val));
     }
   });
 
-  db.ref("rooms/"+id+"/candidates").on("child_added", snap=>{
-    const c = JSON.parse(snap.val());
-    pc.addIceCandidate(c).catch(()=>{});
+  // remote ICE candidates
+  db.ref('rooms/'+roomId+'/candidates').on('child_added', snap=>{
+    const c = snap.val();
+    try{
+      const cand = JSON.parse(c);
+      pc.addIceCandidate(cand).catch(()=>{});
+    }catch(e){}
   });
 }
 
-async function joinCall(id){
-  pc = new RTCPeerConnection();
-  localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
+async function joinCall(roomId){
+  createPeerConnection(roomId);
 
-  pc.ontrack = e => remoteVideo.srcObject = e.streams[0];
-  const offer = JSON.parse((await db.ref("rooms/"+id+"/offer").get()).val());
+  // get offer
+  const offerSnap = await db.ref('rooms/'+roomId+'/offer').get();
+  const offerVal = offerSnap.val();
+  if(!offerVal) {
+    // no offer -> create
+    return await createCall(roomId);
+  }
+
+  const offer = JSON.parse(offerVal);
   await pc.setRemoteDescription(offer);
 
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
-  db.ref("rooms/"+id+"/answer").set(JSON.stringify(answer));
 
-  pc.onicecandidate = e => { if(e.candidate) db.ref("rooms/"+id+"/candidates").push(JSON.stringify(e.candidate)); };
+  // save answer
+  db.ref('rooms/'+roomId+'/answer').set(JSON.stringify(answer));
 
-  db.ref("rooms/"+id+"/candidates").on("child_added", snap=>{
-    const c = JSON.parse(snap.val());
-    pc.addIceCandidate(c).catch(()=>{});
+  // ICE candidates
+  db.ref('rooms/'+roomId+'/candidates').on('child_added', snap=>{
+    const c = snap.val();
+    try{
+      const cand = JSON.parse(c);
+      pc.addIceCandidate(cand).catch(()=>{});
+    }catch(e){}
   });
 }
 
-
-// -------- Controls --------
-document.getElementById("switchBtn").onclick = async ()=>{
-  let track = localStream.getVideoTracks()[0];
-  await track.stop();
-  localStream = await navigator.mediaDevices.getUserMedia({
-    video:{facingMode:"environment"}, audio:true
+/* ============== Chat (Realtime DB) ============== */
+function setupChatRealtime(roomId){
+  const chatRef = db.ref('chat/'+roomId);
+  // show existing + future messages
+  chatRef.on('child_added', snap=>{
+    const data = snap.val();
+    if(!data) return;
+    appendMessageToChat(data);
   });
-  localVideo.srcObject = localStream;
+}
+
+// append message to chat box
+function appendMessageToChat(data){
+  const el = document.createElement('div');
+  el.className = 'msg ' + (data.sender === myNumber ? 'me' : 'them');
+  if(data.type === 'text'){
+    el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong> ${escapeHtml(data.text)}`;
+  } else if(data.type === 'file'){
+    // image or video preview
+    if(data.mimetype && data.mimetype.startsWith('image')){
+      el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong><br><a href="${data.url}" target="_blank"><img src="${data.url}" class="file-thumb" /></a>`;
+    } else if(data.mimetype && data.mimetype.startsWith('video')){
+      el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong><br><a href="${data.url}" target="_blank"><video class="file-thumb" controls src="${data.url}"></video></a>`;
+    } else {
+      el.innerHTML = `<strong>${data.sender === myNumber ? 'You' : data.sender}:</strong><br><a href="${data.url}" target="_blank">${escapeHtml(data.name || 'file')}</a>`;
+    }
+  }
+  chatBox.appendChild(el);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+/* ============== Send Chat Message ============== */
+sendBtn.onclick = sendChat;
+chatInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
+
+function sendChat(){
+  const txt = chatInput.value.trim();
+  if(!txt) return;
+  db.ref('chat/'+ROOM_ID).push({
+    sender: myNumber,
+    type: 'text',
+    text: txt,
+    ts: Date.now()
+  });
+  chatInput.value = '';
+}
+
+/* ============== File upload (Storage) ============== */
+fileBtn.onclick = ()=> fileInput.click();
+fileInput.onchange = async(e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  // limit ~20MB
+  const MAX = 20 * 1024 * 1024;
+  if(file.size > MAX){ alert('File too large (max 20MB)'); return; }
+
+  const path = 'chatFiles/'+ROOM_ID+'/'+Date.now()+'_'+file.name;
+  const ref = storage.ref(path);
+  const uploadTask = ref.put(file);
+
+  // optional: show uploading notice
+  const upMsg = document.createElement('div'); upMsg.className='msg me'; upMsg.textContent = 'Uploading...'; chatBox.appendChild(upMsg); chatBox.scrollTop = chatBox.scrollHeight;
+
+  uploadTask.on('state_changed',
+    snapshot => {},
+    err => { alert('Upload error: '+err.message); upMsg.remove(); },
+    async ()=> {
+      const url = await ref.getDownloadURL();
+      db.ref('chat/'+ROOM_ID).push({
+        sender: myNumber,
+        type: 'file',
+        url,
+        name: file.name,
+        mimetype: file.type,
+        ts: Date.now()
+      });
+      upMsg.remove();
+    }
+  );
+
+  fileInput.value = '';
 };
 
-document.getElementById("muteBtn").onclick = ()=>{
-  localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled;
+/* ============== Screen Share ============== */
+shareBtn.onclick = async () => {
+  if(!pc){
+    alert('Connection not ready yet.');
+    return;
+  }
+  if(!isSharing){
+    try{
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({video:true});
+      screenTrack = screenStream.getVideoTracks()[0];
+      // replace the outbound video track
+      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+      if(sender){
+        await sender.replaceTrack(screenTrack);
+      } else {
+        // fallback: addTrack
+        pc.addTrack(screenTrack, screenStream);
+      }
+      isSharing = true;
+      shareBtn.textContent = '🛑 Stop';
+      screenTrack.onended = () => { stopScreenShare(); };
+    } catch(err){
+      console.error('Screen share failed', err);
+    }
+  } else {
+    stopScreenShare();
+  }
 };
 
-document.getElementById("speakerBtn").onclick = ()=>{
-  remoteVideo.muted = !remoteVideo.muted;
+async function stopScreenShare(){
+  if(!pc) return;
+  // replace with local camera track
+  const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+  const cameraTrack = localStream && localStream.getVideoTracks()[0];
+  if(sender && cameraTrack){
+    await sender.replaceTrack(cameraTrack);
+  }
+  // stop screen track if exists
+  try{ screenTrack && screenTrack.stop(); }catch(e){}
+  isSharing = false;
+  shareBtn.textContent = '📺 Share';
+}
+
+/* ============== Camera Switch ============== */
+switchBtn.onclick = async () => {
+  try{
+    // stop existing video track
+    const videoTrack = localStream && localStream.getVideoTracks()[0];
+    if(videoTrack) videoTrack.stop();
+    // toggle facingMode: try environment then user
+    const currentFacing = videoTrack && videoTrack.label && /front|user/i.test(videoTrack.label) ? 'environment' : 'user';
+    // try environment first
+    const newStream = await navigator.mediaDevices.getUserMedia({video:{facingMode: 'environment'}, audio:true});
+    // if environment fails, fallback to user
+    if(!newStream || !newStream.getVideoTracks().length){
+      localStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:true});
+    } else {
+      localStream = newStream;
+    }
+    // update local video
+    localVideo.srcObject = localStream;
+    // replace track in PeerConnection
+    const sender = pc && pc.getSenders().find(s=>s.track && s.track.kind === 'video');
+    const cameraTrack = localStream.getVideoTracks()[0];
+    if(sender && cameraTrack){
+      await sender.replaceTrack(cameraTrack);
+    }
+  } catch(err){ console.error('Switch error', err); }
 };
 
-document.getElementById("endBtn").onclick = ()=>{
+/* ============== Mute / Speaker ============== */
+muteBtn.onclick = () => {
+  if(!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+  muteBtn.textContent = isMuted ? '🔇' : '🎤';
+};
+
+speakerBtn.onclick = () => {
+  speakerOn = !speakerOn;
+  remoteVideo.muted = !speakerOn;
+  speakerBtn.textContent = speakerOn ? '🔊' : '🔈';
+};
+
+/* ============== End Call ============== */
+endBtn.onclick = () => {
+  // optional: cleanup DB nodes (be careful in multi-user setup) — here we keep it simple
+  try{
+    pc && pc.close();
+  }catch(e){}
+  // reload page to reset
   location.reload();
 };
 
+/* ============== UI helpers ============== */
+function setupUI(){
+  // toggle local video PIP on click
+  localVideo.addEventListener('click', ()=>{
+    localVideo.classList.toggle('small');
+  });
+}
+
+// escape HTML
+function escapeHtml(str){
+  if(!str) return '';
+  return String(str).replace(/[&<>"'`=\/]/g, s => {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[s];
+  });
+}
+
+/* ============== Safety / Debug helpers ============== */
+window.addEventListener('beforeunload', ()=>{
+  // close pc
+  try{ pc && pc.close(); }catch(e){}
+});
 </script>
 </body>
 </html>
