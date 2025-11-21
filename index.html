@@ -10,16 +10,34 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <style>
-  :root{--accent:#0095f6;--bg:#000;}
-  html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#fff;}
-  iframe{width:100%;height:100vh;border:none;}
+  :root{--accent:#0095f6;}
+  html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:#000;color:#fff;}
+  /* Off image */
+  #offScreen{display:none;width:100%;height:100vh;background:#000;display:flex;align-items:center;justify-content:center;}
+  #offScreen img{max-width:100%;max-height:100%;object-fit:contain;}
+  /* Password overlay */
   #passwordScreen{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:9999;color:white;}
   #passwordScreen input{width:140px;padding:12px;font-size:20px;text-align:center;border-radius:10px;border:none;outline:none;}
   #passwordScreen button{margin-top:12px;padding:10px 18px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600;}
   #passError{color:#ff8888;margin-top:10px;}
+
+  /* Video call UI */
+  .app{display:none;height:100vh;box-sizing:border-box;padding:8px;display:flex;flex-direction:column;gap:8px}
+  .room-bar{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.95);padding:8px;border-radius:10px}
+  .room-bar input{flex:1;padding:8px;border-radius:8px;border:1px solid #ddd}
+  .video-wrap{flex:1;position:relative;border-radius:12px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center}
+  video{width:100%;height:100%;object-fit:cover;display:block}
+  #localVideo{position:absolute;right:12px;bottom:110px;width:110px;height:150px;border-radius:10px;border:2px solid rgba(255,255,255,.9);z-index:30;object-fit:cover;cursor:pointer}
+  .controls{display:flex;gap:12px;justify-content:center;padding:8px}
+  .controls button{padding:10px 14px;border-radius:999px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:18px}
 </style>
 </head>
 <body>
+
+<!-- Off Screen Image -->
+<div id="offScreen">
+  <img src="https://share.google/luk3qetubWhke9WpI" alt="Off Image"/>
+</div>
 
 <!-- Password Overlay -->
 <div id="passwordScreen">
@@ -29,8 +47,25 @@
   <p id="passError"></p>
 </div>
 
-<!-- Iframe for off state or after unlock -->
-<iframe id="mainFrame" src=""></iframe>
+<!-- Video Call UI -->
+<div class="app" id="app">
+  <div class="room-bar">
+    <input id="roomLink" readonly placeholder="Room link will generate">
+    <button id="copyBtn">Copy</button>
+  </div>
+
+  <div class="video-wrap" id="videoWrap">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="localVideo" autoplay muted playsinline></video>
+  </div>
+
+  <div class="controls">
+    <button id="switchBtn">🔄</button>
+    <button id="muteBtn">🎤</button>
+    <button id="speakerBtn">🔊</button>
+    <button id="endBtn">❌</button>
+  </div>
+</div>
 
 <script>
 /* ---------------- Firebase config ---------------- */
@@ -48,11 +83,12 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 /* ---------------- UI refs ---------------- */
+const offScreen = document.getElementById('offScreen');
 const passwordScreen = document.getElementById('passwordScreen');
 const passInput = document.getElementById('passInput');
 const passBtn = document.getElementById('passBtn');
 const passError = document.getElementById('passError');
-const mainFrame = document.getElementById('mainFrame');
+const appDiv = document.getElementById('app');
 
 /* ---------------- helper: auto ddmm password ---------------- */
 function getTodayPassword(){
@@ -63,8 +99,9 @@ function getTodayPassword(){
 }
 
 /* ---------------- show/hide ---------------- */
-function showPassword(){ passwordScreen.style.display='flex'; mainFrame.style.display='none'; }
-function showIframe(url){ passwordScreen.style.display='none'; mainFrame.style.display='block'; mainFrame.src = url; }
+function showOff(){ offScreen.style.display='flex'; passwordScreen.style.display='none'; appDiv.style.display='none'; }
+function showPassword(){ offScreen.style.display='none'; passwordScreen.style.display='flex'; appDiv.style.display='none'; }
+function showApp(){ offScreen.style.display='none'; passwordScreen.style.display='none'; appDiv.style.display='flex'; }
 
 /* ---------------- listen to Firebase appStatus ---------------- */
 const statusRef = db.ref('appStatus');
@@ -73,7 +110,7 @@ statusRef.on('value', snap=>{
   if(s === 'on'){
     showPassword();
   } else {
-    showIframe('https://www.cricbuzz.com/cricket-series/9638/south-africa-tour-of-india-2025/matches');
+    showOff();
   }
 });
 
@@ -84,13 +121,78 @@ passInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
 function tryUnlock(){
   const v = passInput.value.trim();
   if(v === getTodayPassword()){
-    passError.textContent = '';
-    showIframe(''); // Password correct, iframe blank or you can load any app URL here
+    passError.textContent='';
+    showApp();
+    initializeApp(); // start video call
   } else {
     passError.textContent='Wrong password';
     setTimeout(()=>passError.textContent='',2000);
   }
 }
+
+/* ---------------- Video Call basic setup ---------------- */
+const remoteVideo = document.getElementById('remoteVideo');
+const localVideo = document.getElementById('localVideo');
+const switchBtn = document.getElementById('switchBtn');
+const muteBtn = document.getElementById('muteBtn');
+const speakerBtn = document.getElementById('speakerBtn');
+const endBtn = document.getElementById('endBtn');
+
+let localStream=null, pc=null, roomId=null, facingMode='user', muted=false, speakerOn=true;
+
+async function startLocalStream(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode}, audio:true});
+    if(localStream && pc){
+      const oldTrack = localStream.getVideoTracks()[0];
+      const newTrack = stream.getVideoTracks()[0];
+      const sender = pc.getSenders().find(s => s.track && s.track.kind==='video');
+      if(sender) await sender.replaceTrack(newTrack);
+      localStream.removeTrack(oldTrack);
+      oldTrack.stop();
+      localStream.addTrack(newTrack);
+      localVideo.srcObject = localStream;
+    } else {
+      localStream=stream;
+      localVideo.srcObject=localStream;
+    }
+  } catch(e){ alert('Camera/Mic required: '+e.message); console.error(e); }
+}
+
+async function initializeApp(){
+  await startLocalStream();
+  createRoom();
+}
+
+async function createRoom(){
+  pc = new RTCPeerConnection();
+  localStream.getTracks().forEach(track=>pc.addTrack(track, localStream));
+  pc.ontrack = e=>{ remoteVideo.srcObject=e.streams[0]; };
+  pc.onicecandidate = e=>{ if(e.candidate) db.ref('rooms/'+roomId+'/candidates').push(JSON.stringify(e.candidate)); };
+
+  roomId = Math.random().toString(36).substring(2,10);
+  document.getElementById('roomLink').value = location.href+'?room='+roomId;
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  db.ref('rooms/'+roomId+'/offer').set(JSON.stringify(offer));
+
+  db.ref('rooms/'+roomId+'/answer').on('value', snap=>{
+    const answer = snap.val();
+    if(answer && !pc.currentRemoteDescription) pc.setRemoteDescription(JSON.parse(answer));
+  });
+
+  db.ref('rooms/'+roomId+'/candidates').on('child_added', snap=>{
+    const c = JSON.parse(snap.val());
+    if(c) pc.addIceCandidate(c).catch(()=>{});
+  });
+}
+
+/* Controls */
+switchBtn.addEventListener('click', async ()=>{ facingMode=(facingMode==='user'?'environment':'user'); await startLocalStream(); });
+muteBtn.addEventListener('click', ()=>{ muted=!muted; if(localStream) localStream.getAudioTracks().forEach(t=>t.enabled=!muted); muteBtn.textContent=muted?'🔇':'🎤'; });
+speakerBtn.addEventListener('click', ()=>{ speakerOn=!speakerOn; remoteVideo.muted=!speakerOn; speakerBtn.textContent=speakerOn?'🔊':'🔈'; });
+endBtn.addEventListener('click', ()=>{ location.reload(); });
 </script>
 </body>
 </html>
