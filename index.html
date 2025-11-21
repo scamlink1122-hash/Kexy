@@ -12,13 +12,7 @@
 <style>
   :root{--accent:#0095f6;--bg:linear-gradient(135deg,#f09433,#cc2366);}
   html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);-webkit-font-smoothing:antialiased;color:#111}
-  /* Calendar full-screen */
-  #calendarScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:18px;box-sizing:border-box;}
-  .months{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;max-width:900px;}
-  .month{background:#fff;padding:18px;border-radius:10px;text-align:center;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.12)}
-  .month small{display:block;margin-top:8px;color:#666;font-weight:400}
   .brand{position:absolute;left:12px;top:10px;color:#fff;font-weight:700}
-
   /* Password overlay */
   #passwordScreen{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:9999;color:white;flex-direction:column}
   #passwordScreen h2{margin:0 0 14px;font-size:20px}
@@ -41,22 +35,13 @@
   .msg.received{align-self:flex-start;background:#fff;border:1px solid #e2e2e2}
   .chat-input{display:flex;gap:8px;align-items:center}
   .chat-input input[type="text"]{flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;outline:none}
-
-  @media(min-width:900px){ .months{max-width:700px} }
 </style>
 </head>
 <body>
 
 <div class="brand">Kexy Secure</div>
 
-<!-- Calendar Screen (shown when appStatus == "off") -->
-<div id="calendarScreen" style="display:none">
-  <h1 style="color:#fff;margin-bottom:18px">Year Calendar</h1>
-  <div class="months" id="monthsGrid"></div>
-  <p style="color:#fff;margin-top:18px">Status: <strong id="statusText">loading...</strong></p>
-</div>
-
-<!-- Password Overlay (shown when appStatus == "on" before unlocking) -->
+<!-- Password Overlay -->
 <div id="passwordScreen">
   <h2>Enter 4-digit password (ddmm)</h2>
   <input id="passInput" maxlength="4" placeholder="****" inputmode="numeric" />
@@ -64,25 +49,22 @@
   <p id="passError" style="color:#ff8888;margin-top:10px"></p>
 </div>
 
-<!-- Main App UI (WebRTC + Chat) -->
+<!-- Main App UI -->
 <div class="app" id="app">
   <div class="room-bar">
     <input id="roomLink" readonly placeholder="Room link will generate">
     <button id="copyBtn">Copy</button>
   </div>
-
   <div class="video-wrap" id="videoWrap">
     <video id="remoteVideo" autoplay playsinline></video>
     <video id="localVideo" autoplay muted playsinline></video>
   </div>
-
   <div class="controls">
     <button id="switchBtn">🔄</button>
     <button id="muteBtn">🎤</button>
     <button id="speakerBtn">🔊</button>
     <button id="endBtn">❌</button>
   </div>
-
   <div class="chat">
     <div class="messages" id="messages"></div>
     <div class="chat-input">
@@ -97,7 +79,6 @@
 </div>
 
 <script>
-/* ---------------- Firebase config - REPLACE with your project's config if needed ---------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyCdaMeWKKI7P8_sNeVbjs4eRlnufQItlJI",
   authDomain: "video-call-a9749.firebaseapp.com",
@@ -111,18 +92,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* ---------------- UI refs ---------------- */
-const calendarScreen = document.getElementById('calendarScreen');
-const monthsGrid = document.getElementById('monthsGrid');
-const statusText = document.getElementById('statusText');
 const passwordScreen = document.getElementById('passwordScreen');
 const passInput = document.getElementById('passInput');
 const passBtn = document.getElementById('passBtn');
 const passError = document.getElementById('passError');
 const appDiv = document.getElementById('app');
-const roomLinkInput = document.getElementById('roomLink');
 
-/* ---------------- helper: auto ddmm password ---------------- */
 function getTodayPassword(){
   const d = new Date();
   const day = String(d.getDate()).padStart(2,'0');
@@ -130,232 +105,117 @@ function getTodayPassword(){
   return day + month;
 }
 
-/* ---------------- populate calendar UI ---------------- */
-function populateCalendar(){
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  monthsGrid.innerHTML = '';
-  months.forEach(m=>{
-    const el = document.createElement('div');
-    el.className = 'month';
-    el.innerHTML = `<div>${m}</div><small>Click for nothing</small>`;
-    monthsGrid.appendChild(el);
-  });
-}
+function showPassword(){ passwordScreen.style.display='flex'; appDiv.style.display='none'; }
+function showAppUI(){ passwordScreen.style.display='none'; appDiv.style.display='flex'; }
 
-/* ---------------- show/hide helpers ---------------- */
-function showCalendar(){
-  calendarScreen.style.display = 'flex';
-  passwordScreen.style.display = 'none';
-  appDiv.style.display = 'none';
-}
-function showPassword(){
-  calendarScreen.style.display = 'none';
-  passwordScreen.style.display = 'flex';
-  appDiv.style.display = 'none';
-}
-function showAppUI(){
-  calendarScreen.style.display = 'none';
-  passwordScreen.style.display = 'none';
-  appDiv.style.display = 'flex';
-}
-
-/* ---------------- listen to Firebase appStatus ---------------- */
+/* Firebase listener for appStatus */
 const statusRef = db.ref('appStatus');
 statusRef.on('value', snap=>{
   const s = snap.val();
-  statusText.textContent = s || 'off';
-  if(s === 'on'){
-    // require password to unlock
+  if(s==='on'){
     showPassword();
   } else {
-    // off => show calendar
-    showCalendar();
+    // App off -> redirect to Flipkart
+    window.location.href = 'https://www.flipkart.com';
   }
 });
 
-/* ---------------- password handling ---------------- */
+/* Password handling */
 passBtn.addEventListener('click', tryUnlock);
-passInput.addEventListener('keydown', e => { if(e.key === 'Enter') tryUnlock(); });
+passInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
 
 function tryUnlock(){
   const v = passInput.value.trim();
   if(v === getTodayPassword()){
-    passError.textContent = '';
-    initializeApp(); // start video/chat
+    passError.textContent='';
+    initializeApp();
     showAppUI();
   } else {
-    passError.textContent = 'Wrong password';
+    passError.textContent='Wrong password';
     setTimeout(()=>passError.textContent='',2000);
   }
 }
 
-/* ---------------- WebRTC + Chat basic implementation ---------------- */
-const remoteVideo = document.getElementById('remoteVideo');
-const localVideo = document.getElementById('localVideo');
-const switchBtn = document.getElementById('switchBtn');
-const muteBtn = document.getElementById('muteBtn');
-const speakerBtn = document.getElementById('speakerBtn');
-const endBtn = document.getElementById('endBtn');
-const messagesDiv = document.getElementById('messages');
-const textInput = document.getElementById('textInput');
-const fileInput = document.getElementById('fileInput');
-const sendBtn = document.getElementById('sendBtn');
+/* WebRTC + Chat setup (same as before) */
+let localStream=null, pc=null, roomId=null, facingMode='user', muted=false, speakerOn=true;
+const remoteVideo=document.getElementById('remoteVideo');
+const localVideo=document.getElementById('localVideo');
+const switchBtn=document.getElementById('switchBtn');
+const muteBtn=document.getElementById('muteBtn');
+const speakerBtn=document.getElementById('speakerBtn');
+const endBtn=document.getElementById('endBtn');
+const messagesDiv=document.getElementById('messages');
+const textInput=document.getElementById('textInput');
+const fileInput=document.getElementById('fileInput');
+const sendBtn=document.getElementById('sendBtn');
 
-let localStream = null;
-let pc = null;
-let roomId = null;
-let facingMode = 'user';
-let muted = false, speakerOn = true;
-
-function addMessage(text,type='received',fileType){
-  const el = document.createElement('div');
-  el.className = 'msg ' + (type==='sent' ? 'sent' : 'received');
-  if(fileType){
-    if(fileType.startsWith('image')){ const img=document.createElement('img'); img.src=text; img.style.maxWidth='220px'; img.style.borderRadius='8px'; el.appendChild(img); }
-    else if(fileType.startsWith('video')){ const v=document.createElement('video'); v.src=text; v.controls = true; v.style.maxWidth='220px'; v.style.borderRadius='8px'; el.appendChild(v); }
-    else el.textContent='[file]';
-  } else el.textContent=text;
-  messagesDiv.appendChild(el);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-/* start local camera */
 async function startLocalStream(){
   try{
-    const constraints = { video: { facingMode }, audio: true };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    // If we already had a localStream, try to replace video track to avoid freeze
+    const constraints={video:{facingMode},audio:true};
+    const stream=await navigator.mediaDevices.getUserMedia(constraints);
     if(localStream && pc){
-      const oldVideoTrack = localStream.getVideoTracks()[0];
-      const newVideoTrack = stream.getVideoTracks()[0];
-      // replace in RTCPeerConnection
-      const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
-      if(sender){
-        await sender.replaceTrack(newVideoTrack);
-      }
-      // update localStream tracks
-      if(oldVideoTrack) { localStream.removeTrack(oldVideoTrack); try{ oldVideoTrack.stop(); }catch(e){} }
+      const oldVideoTrack=localStream.getVideoTracks()[0];
+      const newVideoTrack=stream.getVideoTracks()[0];
+      const sender=pc.getSenders().find(s=>s.track && s.track.kind==='video');
+      if(sender) await sender.replaceTrack(newVideoTrack);
+      if(oldVideoTrack){ localStream.removeTrack(oldVideoTrack); oldVideoTrack.stop(); }
       localStream.addTrack(newVideoTrack);
-      localVideo.srcObject = null; localVideo.srcObject = localStream;
-    } else {
-      localStream = stream;
-      localVideo.srcObject = localStream;
-    }
-  }catch(e){
-    alert('Camera/Mic access required: ' + e.message);
-    console.error(e);
-  }
+      localVideo.srcObject=null; localVideo.srcObject=localStream;
+    } else { localStream=stream; localVideo.srcObject=localStream; }
+  }catch(e){ alert('Camera/Mic access required: '+e.message); console.error(e); }
 }
 
-/* initialize app: start stream and create room by default */
 async function initializeApp(){
   await startLocalStream();
   createRoom();
   setupChat();
 }
 
-/* simple WebRTC create/join using Firebase Realtime DB (signaling) */
 async function createRoom(){
-  pc = new RTCPeerConnection();
-  // add tracks
-  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-  pc.ontrack = e => { remoteVideo.srcObject = e.streams[0]; };
-  pc.onicecandidate = e => { if(e.candidate) db.ref('rooms/'+roomId+'/candidates').push(JSON.stringify(e.candidate)); };
-
-  // create room id
-  roomId = Math.random().toString(36).substring(2,10);
-  roomLinkInput.value = location.href + '?room=' + roomId;
-
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
+  pc=new RTCPeerConnection();
+  localStream.getTracks().forEach(track=>pc.addTrack(track,localStream));
+  pc.ontrack=e=>{ remoteVideo.srcObject=e.streams[0]; };
+  pc.onicecandidate=e=>{ if(e.candidate) db.ref('rooms/'+roomId+'/candidates').push(JSON.stringify(e.candidate)); };
+  roomId=Math.random().toString(36).substring(2,10);
+  const offer=await pc.createOffer(); await pc.setLocalDescription(offer);
   db.ref('rooms/'+roomId+'/offer').set(JSON.stringify(offer));
-
-  db.ref('rooms/'+roomId+'/answer').on('value', async snap => {
-    const answer = snap.val();
-    if(answer && !pc.currentRemoteDescription){
-      await pc.setRemoteDescription(JSON.parse(answer));
-    }
-  });
-
-  db.ref('rooms/'+roomId+'/candidates').on('child_added', snap=>{
-    const c = JSON.parse(snap.val());
-    if(c) pc.addIceCandidate(c).catch(()=>{});
-  });
-}
-
-/* join call if room param present */
-async function joinCall(id){
-  pc = new RTCPeerConnection();
-  localStream.getTracks().forEach(track=>pc.addTrack(track, localStream));
-  pc.ontrack = e => { remoteVideo.srcObject = e.streams[0]; };
-
-  const offerSnap = await db.ref('rooms/'+id+'/offer').get();
-  const offer = JSON.parse(offerSnap.val());
-  await pc.setRemoteDescription(offer);
-
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-  db.ref('rooms/'+id+'/answer').set(JSON.stringify(answer));
-
-  pc.onicecandidate = e => { if(e.candidate) db.ref('rooms/'+id+'/candidates').push(JSON.stringify(e.candidate)); };
-  db.ref('rooms/'+id+'/candidates').on('child_added', snap=>{
-    const c = JSON.parse(snap.val());
-    if(c) pc.addIceCandidate(c).catch(()=>{});
-  });
+  db.ref('rooms/'+roomId+'/answer').on('value', async snap=>{ const answer=snap.val(); if(answer && !pc.currentRemoteDescription) await pc.setRemoteDescription(JSON.parse(answer)); });
+  db.ref('rooms/'+roomId+'/candidates').on('child_added', snap=>{ const c=JSON.parse(snap.val()); if(c) pc.addIceCandidate(c).catch(()=>{}); });
 }
 
 /* Chat setup */
 function setupChat(){
-  const chatRef = db.ref('rooms/'+roomId+'/chat');
-  chatRef.on('child_added', snap=>{
-    const msg = snap.val();
-    addMessage(msg.text,'received', msg.fileType);
-  });
-
-  sendBtn.onclick = sendMessage;
+  const chatRef=db.ref('rooms/'+roomId+'/chat');
+  chatRef.on('child_added', snap=>{ const msg=snap.val(); addMessage(msg.text,'received',msg.fileType); });
+  sendBtn.onclick=sendMessage;
   textInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendMessage(); });
 }
-
+function addMessage(text,type='received',fileType){
+  const el=document.createElement('div'); el.className='msg '+(type==='sent'?'sent':'received');
+  if(fileType){
+    if(fileType.startsWith('image')){ const img=document.createElement('img'); img.src=text; img.style.maxWidth='220px'; img.style.borderRadius='8px'; el.appendChild(img); }
+    else if(fileType.startsWith('video')){ const v=document.createElement('video'); v.src=text; v.controls=true; v.style.maxWidth='220px'; v.style.borderRadius='8px'; el.appendChild(v); }
+    else el.textContent='[file]';
+  } else el.textContent=text;
+  messagesDiv.appendChild(el); messagesDiv.scrollTop=messagesDiv.scrollHeight;
+}
 function sendMessage(){
-  const txt = textInput.value.trim();
-  const file = fileInput.files[0];
-  const chatRef = db.ref('rooms/'+roomId+'/chat');
+  const txt=textInput.value.trim(); const file=fileInput.files[0]; const chatRef=db.ref('rooms/'+roomId+'/chat');
   if(txt){ chatRef.push({text:txt}); addMessage(txt,'sent'); textInput.value=''; }
   if(file){
-    const MAX = 8*1024*1024;
-    if(file.size>MAX){ alert('File too large'); return; }
-    const reader = new FileReader();
-    reader.onload = ()=>{ chatRef.push({text:reader.result, fileType:file.type}); addMessage(reader.result,'sent',file.type); }
-    reader.readAsDataURL(file);
-    fileInput.value = '';
+    const MAX=8*1024*1024; if(file.size>MAX){ alert('File too large'); return; }
+    const reader=new FileReader();
+    reader.onload=()=>{ chatRef.push({text:reader.result,fileType:file.type}); addMessage(reader.result,'sent',file.type); }
+    reader.readAsDataURL(file); fileInput.value='';
   }
 }
 
 /* Controls */
-switchBtn.addEventListener('click', async ()=>{
-  facingMode = (facingMode === 'user') ? 'environment' : 'user';
-  await startLocalStream();
-});
-muteBtn.addEventListener('click', ()=>{ muted = !muted; if(localStream) localStream.getAudioTracks().forEach(t=>t.enabled = !muted); muteBtn.textContent = muted ? '🔇' : '🎤'; });
-speakerBtn.addEventListener('click', ()=>{ speakerOn = !speakerOn; remoteVideo.muted = !speakerOn; speakerBtn.textContent = speakerOn ? '🔊' : '🔈'; });
+switchBtn.addEventListener('click', async()=>{ facingMode=(facingMode==='user')?'environment':'user'; await startLocalStream(); });
+muteBtn.addEventListener('click', ()=>{ muted=!muted; if(localStream) localStream.getAudioTracks().forEach(t=>t.enabled=!muted); muteBtn.textContent=muted?'🔇':'🎤'; });
+speakerBtn.addEventListener('click', ()=>{ speakerOn=!speakerOn; remoteVideo.muted=!speakerOn; speakerBtn.textContent=speakerOn?'🔊':'🔈'; });
 endBtn.addEventListener('click', ()=>{ location.reload(); });
-
 localVideo.addEventListener('click', ()=>{ localVideo.classList.toggle('minimized'); remoteVideo.classList.toggle('small'); });
-
-document.getElementById('copyBtn').addEventListener('click', ()=>{
-  if(roomLinkInput.value) navigator.clipboard.writeText(roomLinkInput.value).then(()=>{ document.getElementById('copyBtn').textContent='Copied'; setTimeout(()=>document.getElementById('copyBtn').textContent='Copy',1200); });
-});
-
-/* check if page loaded with ?room=... to auto-join (if unlocked) */
-window.addEventListener('load', ()=>{
-  populateCalendar();
-  const params = new URLSearchParams(location.search);
-  const r = params.get('room');
-  if(r){
-    // if appStatus == on & unlocked, join call after init
-    // We'll check later during initializeApp flow
-  }
-});
 </script>
 </body>
 </html>
