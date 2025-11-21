@@ -10,77 +10,27 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <style>
-:root{--accent:#0095f6;--bg:linear-gradient(135deg,#f09433,#cc2366);}
-html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);-webkit-font-smoothing:antialiased;color:#111}
-.brand{position:absolute;left:12px;top:10px;color:#fff;font-weight:700}
-
-/* Password overlay */
-#passwordScreen{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:9999;color:white;flex-direction:column}
-#passwordScreen h2{margin:0 0 14px;font-size:20px}
-#passwordScreen input{width:140px;padding:12px;font-size:20px;text-align:center;border-radius:10px;border:none;outline:none}
-#passwordScreen button{margin-top:12px;padding:10px 18px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600}
-
-/* App UI */
-.app{display:none;height:100vh;box-sizing:border-box;padding:8px;display:flex;flex-direction:column;gap:8px}
-.room-bar{display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.95);padding:8px;border-radius:10px}
-.room-bar input{flex:1;padding:8px;border-radius:8px;border:1px solid #ddd}
-.video-wrap{flex:1;position:relative;border-radius:12px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center}
-video{width:100%;height:100%;object-fit:cover;display:block}
-#localVideo{position:absolute;right:12px;bottom:110px;width:110px;height:150px;border-radius:10px;border:2px solid rgba(255,255,255,.9);z-index:30;object-fit:cover;cursor:pointer}
-.controls{display:flex;gap:12px;justify-content:center;padding:8px}
-.controls button{padding:10px 14px;border-radius:999px;border:none;background:rgba(0,0,0,0.6);color:#fff;font-size:18px}
-.chat{background:rgba(255,255,255,0.95);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:8px;max-height:260px;overflow:hidden}
-.messages{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:6px}
-.msg{max-width:74%;padding:8px;border-radius:12px;background:#f1f1f1;color:#111}
-.msg.sent{align-self:flex-end;background:#dcf8c6}
-.msg.received{align-self:flex-start;background:#fff;border:1px solid #e2e2e2}
-.chat-input{display:flex;gap:8px;align-items:center}
-.chat-input input[type="text"]{flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;outline:none}
+  :root{--accent:#0095f6;--bg:#000;}
+  html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#fff;}
+  iframe{width:100%;height:100vh;border:none;}
+  #passwordScreen{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:9999;color:white;}
+  #passwordScreen input{width:140px;padding:12px;font-size:20px;text-align:center;border-radius:10px;border:none;outline:none;}
+  #passwordScreen button{margin-top:12px;padding:10px 18px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-weight:600;}
+  #passError{color:#ff8888;margin-top:10px;}
 </style>
 </head>
 <body>
-
-<div class="brand">Kexy Secure</div>
 
 <!-- Password Overlay -->
 <div id="passwordScreen">
   <h2>Enter 4-digit password (ddmm)</h2>
   <input id="passInput" maxlength="4" placeholder="****" inputmode="numeric" />
   <button id="passBtn">Unlock</button>
-  <p id="passError" style="color:#ff8888;margin-top:10px"></p>
+  <p id="passError"></p>
 </div>
 
-<!-- Main App UI (WebRTC + Chat) -->
-<div class="app" id="app">
-  <div class="room-bar">
-    <input id="roomLink" readonly placeholder="Room link will generate">
-    <button id="copyBtn">Copy</button>
-  </div>
-
-  <div class="video-wrap" id="videoWrap">
-    <video id="remoteVideo" autoplay playsinline></video>
-    <video id="localVideo" autoplay muted playsinline></video>
-  </div>
-
-  <div class="controls">
-    <button id="switchBtn">🔄</button>
-    <button id="muteBtn">🎤</button>
-    <button id="speakerBtn">🔊</button>
-    <button id="endBtn">❌</button>
-  </div>
-
-  <div class="chat">
-    <div class="messages" id="messages"></div>
-    <div class="chat-input">
-      <input type="text" id="textInput" placeholder="Type a message..." />
-      <label style="padding:10px 12px;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer">
-        📎
-        <input type="file" id="fileInput" accept="image/*,video/*" style="display:none">
-      </label>
-      <button id="sendBtn" style="padding:10px 12px;background:var(--accent);color:#fff;border:none;border-radius:8px">Send</button>
-    </div>
-  </div>
-</div>
+<!-- Iframe for off state or after unlock -->
+<iframe id="mainFrame" src=""></iframe>
 
 <script>
 /* ---------------- Firebase config ---------------- */
@@ -102,7 +52,7 @@ const passwordScreen = document.getElementById('passwordScreen');
 const passInput = document.getElementById('passInput');
 const passBtn = document.getElementById('passBtn');
 const passError = document.getElementById('passError');
-const appDiv = document.getElementById('app');
+const mainFrame = document.getElementById('mainFrame');
 
 /* ---------------- helper: auto ddmm password ---------------- */
 function getTodayPassword(){
@@ -112,83 +62,34 @@ function getTodayPassword(){
   return day + month;
 }
 
+/* ---------------- show/hide ---------------- */
+function showPassword(){ passwordScreen.style.display='flex'; mainFrame.style.display='none'; }
+function showIframe(url){ passwordScreen.style.display='none'; mainFrame.style.display='block'; mainFrame.src = url; }
+
 /* ---------------- listen to Firebase appStatus ---------------- */
 const statusRef = db.ref('appStatus');
 statusRef.on('value', snap=>{
   const s = snap.val();
   if(s === 'on'){
-    // require password
-    passwordScreen.style.display = 'flex';
-    appDiv.style.display = 'none';
+    showPassword();
   } else {
-    // OFF → Flipkart
-    window.location.href = "https://www.flipkart.com";
+    showIframe('https://www.cricbuzz.com/cricket-series/9638/south-africa-tour-of-india-2025/matches');
   }
 });
 
 /* ---------------- password handling ---------------- */
 passBtn.addEventListener('click', tryUnlock);
-passInput.addEventListener('keydown', e => { if(e.key === 'Enter') tryUnlock(); });
+passInput.addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
 
-async function tryUnlock(){
+function tryUnlock(){
   const v = passInput.value.trim();
   if(v === getTodayPassword()){
     passError.textContent = '';
-    passwordScreen.style.display = 'none';
-    appDiv.style.display = 'flex';
-    initializeApp(); // start WebRTC + Chat
+    showIframe(''); // Password correct, iframe blank or you can load any app URL here
   } else {
-    passError.textContent = 'Wrong password';
+    passError.textContent='Wrong password';
     setTimeout(()=>passError.textContent='',2000);
   }
-}
-
-/* ---------------- WebRTC + Chat basic ---------------- */
-const remoteVideo = document.getElementById('remoteVideo');
-const localVideo = document.getElementById('localVideo');
-const switchBtn = document.getElementById('switchBtn');
-const muteBtn = document.getElementById('muteBtn');
-const speakerBtn = document.getElementById('speakerBtn');
-const endBtn = document.getElementById('endBtn');
-const messagesDiv = document.getElementById('messages');
-const textInput = document.getElementById('textInput');
-const fileInput = document.getElementById('fileInput');
-const sendBtn = document.getElementById('sendBtn');
-
-let localStream = null;
-let pc = null;
-let roomId = null;
-let facingMode = 'user';
-let muted = false, speakerOn = true;
-
-function addMessage(text,type='received',fileType){
-  const el = document.createElement('div');
-  el.className = 'msg ' + (type==='sent' ? 'sent' : 'received');
-  if(fileType){
-    if(fileType.startsWith('image')){ const img=document.createElement('img'); img.src=text; img.style.maxWidth='220px'; img.style.borderRadius='8px'; el.appendChild(img); }
-    else if(fileType.startsWith('video')){ const v=document.createElement('video'); v.src=text; v.controls = true; v.style.maxWidth='220px'; v.style.borderRadius='8px'; el.appendChild(v); }
-    else el.textContent='[file]';
-  } else el.textContent=text;
-  messagesDiv.appendChild(el);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-async function startLocalStream(){
-  try{
-    const constraints = { video: { facingMode }, audio: true };
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    localStream = stream;
-    localVideo.srcObject = localStream;
-  }catch(e){
-    alert('Camera/Mic access required: ' + e.message);
-    console.error(e);
-  }
-}
-
-async function initializeApp(){
-  await startLocalStream();
-  // WebRTC create room / join logic here
-  // Optional: setup chat
 }
 </script>
 </body>
